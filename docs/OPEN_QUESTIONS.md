@@ -19,7 +19,7 @@ that deviates from the checklists or adds behaviour waits for the owner.
 | 7 | Machine profiles | M4 | Decided |
 | 8 | Report | M5 | Decided |
 | 9 | Diagnostics page | after M5 | Deferred |
-| 10 | Untested behaviour | M2–M5 (verification plan) | Decided (S4) |
+| 10 | Untested behaviour | M2–M5 (verification plan) | Decided (audit mode implemented) |
 | 11 | `-KeepService` array via `-File` | M2 | Decided |
 | 12 | Reboot after PreUpdate? | M2 | Decided |
 | 13 | WO7 §8 registry checks after the reboot | M3 | Decided |

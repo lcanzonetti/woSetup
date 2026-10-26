@@ -18,7 +18,7 @@ Describe '<_>' -ForEach @('WO7-Setup.ps1', 'WO6-Setup.ps1') {
             (Resolve-Path $scriptPath).Path, [ref]$tokens, [ref]$parseErrors)
         if ($parseErrors.Count -gt 0) { throw "Parse errors in ${_}: $($parseErrors[0].Message)" }
 
-        $wanted = 'Add-Policy', 'ConvertTo-LgpoText'
+        $wanted = 'Add-Policy', 'ConvertTo-LgpoText', 'Format-AuditValue', 'Write-Audit'
         $defs = $ast.FindAll({
                 param($node)
                 $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
@@ -32,6 +32,9 @@ Describe '<_>' -ForEach @('WO7-Setup.ps1', 'WO6-Setup.ps1') {
     BeforeEach {
         # Add-Policy queues into $script:Policies, as in the scripts.
         $script:Policies = New-Object System.Collections.Generic.List[object]
+        # Write-Audit records into $script:AuditItems, as in the scripts.
+        $script:AuditItems = New-Object System.Collections.Generic.List[object]
+        $script:CurrentSection = 'Test section'
     }
 
     It 'parses without errors and defines both functions' {
@@ -103,6 +106,32 @@ Describe '<_>' -ForEach @('WO7-Setup.ps1', 'WO6-Setup.ps1') {
             $text | Should -Match 'DWORD:0'
             $text | Should -Not -Match 'DWORD:1'
             $text | Should -Not -Match '; old'
+        }
+    }
+
+    Context 'Audit helpers' {
+        It 'formats binary values as hex bytes, like the registry editor' {
+            Format-AuditValue ([byte[]](0x90, 0x12, 0x03, 0x80)) | Should -Be '90 12 03 80'
+        }
+
+        It 'formats numbers and strings so that 0 and "0" compare equal' {
+            Format-AuditValue 0 | Should -Be (Format-AuditValue '0')
+            Format-AuditValue 15 | Should -Be '15'
+        }
+
+        It 'shows a missing value as (none)' {
+            Format-AuditValue $null | Should -Be '(none)'
+        }
+
+        It 'records each audit line with its section and state' {
+            Write-Audit 'Set' 'Item A'
+            Write-Audit 'NotSet' 'Item B' 'current: 1'
+            Write-Audit 'NA' 'Item C' '-KeepFirewall'
+            $script:AuditItems.Count | Should -Be 3
+            $script:AuditItems[0].State | Should -Be 'Set'
+            $script:AuditItems[1].Detail | Should -Be 'current: 1'
+            $script:AuditItems[2].State | Should -Be 'NA'
+            $script:AuditItems[0].Section | Should -Be 'Test section'
         }
     }
 }

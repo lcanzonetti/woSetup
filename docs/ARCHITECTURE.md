@@ -472,13 +472,14 @@ missed.
 `-ResultPath <file>` and write a JSON summary when the run ends, whether it
 completed or failed. The wizard uses it as the primary source; the text
 parser above stays for the live log and as a cross-check (a mismatch is
-shown as a warning). Format (schema 1, UTF-8 without BOM):
+shown as a warning). Format (UTF-8 without BOM; example from an apply run):
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "script": "WO6-Setup.ps1",
   "phase": "PostInstall",
+  "mode": "Apply",
   "status": "Completed",
   "fatal": null,
   "startedAt": "2026-10-27T10:02:11.5330000+01:00",
@@ -514,11 +515,13 @@ shown as a warning). Format (schema 1, UTF-8 without BOM):
 - Writing the file can never change the run: if it fails, a
   `[WARN] Result file not written` line is printed and the run continues.
 - The wrapper (§6.3) passes `ResultPath` in `params.json` like any option.
-- Audit items (S4) will be added as `audit[]` in schema 2.
+- **Schema 2** (with the audit mode): adds `mode` (`Apply` | `Audit`) and
+  `audit[]`, one entry per audit line: `{ "Section", "Item", "State"
+  (Set | NotSet | NA), "Detail" }`. `parameters` also lists `Audit`.
 
-### 6.4a Audit mode (decided OQ 10, script change S4)
+### 6.4a Audit mode (implemented, OQ 10)
 
-Both scripts get a read-only `-Audit` switch, valid with either phase and
+Both scripts have a read-only `-Audit` switch, valid with either phase and
 with the same options as a real run:
 
 ```text
@@ -542,17 +545,37 @@ Rules:
   Defender Off is `[SET]` only if the policy is present **and**
   `Get-MpComputerStatus` shows real-time protection off; with Tamper
   Protection on it is `[NOT SET] (Tamper Protection on)`.
-- User-scope policies: read from the Local GPO (`LGPO.exe /parse` of the User
-  `Registry.pol`) and from the running account's HKCU.
-- One-off actions that are not a lasting setting (empty
-  `SoftwareDistribution`, `gpupdate`) are reported as `[N/A] (action)`.
-- An audit writes nothing: no transcript side effects beyond its own log,
-  no LGPO backup, no `gpupdate`.
+- Policies: each queued policy is compared with the value Windows reads,
+  HKLM for Computer policies and the running account's HKCU for User
+  policies (where LGPO + gpupdate put them). Other accounts get User
+  policies at their next sign-in and are not checked.
+- One-off actions that are not a lasting setting (emptying
+  `SoftwareDistribution`) are reported as `[N/A] (one-off action)`.
+- An audit writes nothing: no LGPO backup, no `gpupdate`, no CSV backups.
+  It writes only its own transcript (`<script>_<Phase>_Audit_<stamp>.log`)
+  and, if asked, the `-ResultPath` file.
+- The `[OK]` lines of a real run are not printed in audit mode; warnings are.
+  The run ends with an "Audit summary" (counts of Set / Not set / N/A)
+  instead of "Completed with N warning(s)".
 
-To keep audit and apply from drifting apart, S4 restructures each script
-section so the desired value is defined once and used by both. Behaviour of
-a normal run must not change: verified by comparing the end state of a VM
-checkpoint before/after S4 (MILESTONES).
+How audit and apply share one definition of each value:
+
+- `Set-RegDword` and the new `Set-RegValue` (string/binary values) compare
+  instead of writing when `-Audit` is set, so every registry value the
+  scripts write is audited from the same line of code.
+- `Invoke-PolicyApply` compares the queued policies (`Test-QueuedPolicies`)
+  instead of importing them; policies are queued by the same functions.
+- Functions that change other things (power plan, adapters, network
+  category, services, scheduled tasks, firewall rules, Defender
+  preferences, sound scheme) have a short audit branch that reads the same
+  local lists (`$settings`, `$names`, `$taskPaths`, `$unbind`, `$list`) the
+  apply code uses.
+
+Known limits, flagged **[Uncertain]** until run on a VM: power settings are
+read from `powercfg /query` output by position (the last two `0x` values =
+current AC/DC), not by its localised labels; update scheduled tasks that
+Windows protects stay "enabled", so that line can stay `[NOT SET]` after a
+correct run (its detail says so).
 
 The wizard runs the audit before PreUpdate/PostInstall (the confirmation
 summary lists only the `[NOT SET]` items as "will change") and again after
