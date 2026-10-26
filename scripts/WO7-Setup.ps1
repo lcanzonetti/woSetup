@@ -35,6 +35,11 @@
                                 Explorer, sharing, Start/taskbar notifications)
                                 plus Win11 additions (Widgets, search highlights,
                                 web search, Recall)
+                              * Guide ch. 10 settings: UAC never notify, visual effects,
+                                Remote Assistance off, no sounds, defrag schedule off,
+                                taskbar badges off, USB notifications off
+                              * Guide 10.15 indexing off: Windows Search service
+                                disabled (CSV backup)
                               * Defender: -DefenderMode Off (default), Exclusions or Skip
 
     WINDOWS UPDATE AFTER POSTINSTALL (default: fully disabled)
@@ -50,7 +55,8 @@
       pages show errors (e.g. 0x80070422); use "slmgr /xpr" for activation.
 
     REGISTRY (guide chapter 12)
-      TdrDelay 15 / TdrDdiDelay 60, SystemResponsiveness 10, and for
+      TdrDelay 15 / TdrDdiDelay 60, SystemResponsiveness 10,
+      Win8DpiScaling 1 / LogPixels 96 (100 % scaling, per-user), and for
       -Role Production Win32PrioritySeparation 0x28.
 
     HOW POLICIES ARE WRITTEN
@@ -69,8 +75,9 @@
       * User-scope policies (via LGPO) apply to EVERY local account, including
         administrators. -Role Production omits the display-only ones
         (Ctrl+Alt+Del, Explorer thumbnails), as the guide specifies.
-      * Non-policy HKCU preferences are written to the account that RUNS the
-        script: run it elevated FROM THE SHOW (auto-logon) ACCOUNT.
+      * Non-policy HKCU preferences (notifications, sounds, visual effects,
+        DPI, badges, USB notifications) are written to the account that RUNS
+        the script: run it elevated FROM THE SHOW (auto-logon) ACCOUNT.
 
     MANUAL STEPS THE SCRIPT CANNOT DO
       * Tamper Protection OFF (required for -DefenderMode Off). Blocked from
@@ -607,6 +614,15 @@ function Set-PerformanceRegistry {
     Set-RegDword 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile' 'SystemResponsiveness' 10
     Write-Ok 'SystemResponsiveness = 10'
 
+    # 12.3 Desktop scaling off (100 %, 96 DPI), same values as WO6-Setup.ps1
+    # (owner's decision, Oct 2026). Per-user, account running the script;
+    # takes effect at next sign-in. [Uncertain] On Windows 11 each display
+    # keeps its own scale setting; these values set the system DPI only.
+    # Still check Settings > Display > Scale = 100 % on each output.
+    Set-RegDword 'HKCU:\Control Panel\Desktop' 'Win8DpiScaling' 1
+    Set-RegDword 'HKCU:\Control Panel\Desktop' 'LogPixels'      96
+    Write-Ok "Win8DpiScaling = 1, LogPixels = 96 (account: $env:USERNAME)"
+
     # 12.3 Production PC only: hex 28 (decimal 40) = short fixed quantums,
     # equal foreground/background time, so the Producer keeps its CPU share
     # when it loses focus. Display servers keep the Windows default.
@@ -615,8 +631,130 @@ function Set-PerformanceRegistry {
         Write-Ok 'Win32PrioritySeparation = 0x28 (production role)'
     }
     # Not applied (outdated for WATCHOUT 7 / NVIDIA / Windows 11 Pro):
-    # DirectShow ThreadPriority, ForcePcieLinkSpeed, HideAutoLogonUI,
-    # Win8DpiScaling/LogPixels (set display Scale to 100% instead).
+    # DirectShow ThreadPriority, ForcePcieLinkSpeed, HideAutoLogonUI.
+}
+
+function Set-WindowsSettings {
+    # Dataton guide chapter 10 settings that can be scripted reliably.
+    # Copied unchanged from WO6-Setup.ps1 (owner's decision, Oct 2026), so
+    # both scripts apply the same chapter 10 values.
+    Write-Step "Windows settings (guide ch. 10; per-user parts: $env:USERNAME)"
+    $sys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+
+    # 10.8 UAC "Never notify" = these two values. EnableLUA stays 1: setting it
+    # to 0 disables UAC entirely, which breaks modern apps such as Settings parts.
+    Set-RegDword $sys 'ConsentPromptBehaviorAdmin' 0
+    Set-RegDword $sys 'PromptOnSecureDesktop'      0
+    Write-Ok 'UAC: Never notify'
+
+    # 10.4 Remote Assistance off.
+    Set-RegDword 'HKLM:\SYSTEM\CurrentControlSet\Control\Remote Assistance' 'fAllowToGetHelp' 0
+    Write-Ok 'Remote Assistance connections off'
+
+    # 10.3 Visual effects = "Adjust for best performance".
+    # VisualFXSetting = 2 only selects that option button in the dialog; the
+    # effects themselves are stored in the values below, which is what the
+    # dialog writes when you press Apply. All per-user, read at sign-in, so
+    # they take full effect after the reboot that ends PostInstall.
+    Set-RegDword 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' 'VisualFXSetting' 2
+
+    $desk = 'HKCU:\Control Panel\Desktop'
+    # Bit field holding most effects (menu/tooltip fades and slides, combo-box
+    # and list-box slide, cursor shadow, window shadows, control animations).
+    # 90 12 03 80 10 00 00 00 is the value commonly reported for "best
+    # performance" on Windows 10/11. [Uncertain] Not documented by Microsoft;
+    # verify in the dialog after the reboot (every box should be unticked).
+    Set-ItemProperty -Path $desk -Name 'UserPreferencesMask' -Type Binary -Value ([byte[]](0x90, 0x12, 0x03, 0x80, 0x10, 0x00, 0x00, 0x00))
+    Set-ItemProperty -Path $desk -Name 'DragFullWindows' -Value '0'      # "Show window contents while dragging" off
+    Set-ItemProperty -Path $desk -Name 'FontSmoothing'   -Value '0'      # "Smooth edges of screen fonts" off (part of best performance)
+    Set-ItemProperty -Path "$desk\WindowMetrics" -Name 'MinAnimate' -Value '0'   # "Animate windows when minimizing and maximizing" off
+
+    $adv = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    Set-RegDword $adv 'TaskbarAnimations'   0   # "Animations in the taskbar" off
+    Set-RegDword $adv 'ListviewAlphaSelect' 0   # "Show translucent selection rectangle" off
+    Set-RegDword $adv 'ListviewShadow'      0   # "Use drop shadows for icon labels on the desktop" off
+    Set-RegDword $adv 'IconsOnly'           1   # "Show thumbnails instead of icons" off
+
+    $dwm = 'HKCU:\Software\Microsoft\Windows\DWM'
+    Set-RegDword $dwm 'EnableAeroPeek'            0   # "Enable Peek" off
+    Set-RegDword $dwm 'AlwaysHibernateThumbnails' 0   # "Save taskbar thumbnail previews" off
+
+    # Windows 11 Settings > Accessibility > Visual effects > Transparency
+    # effects (not in the old dialog, same intent).
+    Set-RegDword 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' 'EnableTransparency' 0
+    Write-Ok 'Visual effects: best performance (all effects off, transparency off; full effect after sign-in)'
+
+    # 10.7 Sound scheme "No Sounds": the scheme name plus an empty sound for
+    # every event (setting only the name would leave the old sounds assigned).
+    try {
+        Set-ItemProperty -Path 'HKCU:\AppEvents\Schemes' -Name '(Default)' -Value '.None'
+        Get-ChildItem 'HKCU:\AppEvents\Schemes\Apps' -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.PSChildName -eq '.Current' } |
+            ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name '(Default)' -Value '' }
+        Write-Ok 'Sound scheme: No Sounds'
+    }
+    catch { Write-Warn "Sound scheme not changed: $($_.Exception.Message)" }
+
+    # 10.9 Automatic disk optimisation schedule off. The guide's replacement
+    # (13.2, retrim at logon) is not applied by this script; NTFS still sends
+    # TRIM to SSDs as files are deleted. Run "defrag C: /L" by hand in
+    # maintenance windows if you want a full retrim.
+    try {
+        Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Defrag\' -TaskName 'ScheduledDefrag' -ErrorAction Stop | Out-Null
+        Write-Ok 'Scheduled disk optimisation off'
+    }
+    catch { Write-Warn "Could not disable the ScheduledDefrag task: $($_.Exception.Message)" }
+
+    # 10.12 USB notifications off ("Notify me if there are issues connecting
+    # to USB devices"). [Uncertain] Value name per Windows 10/11 builds; check
+    # Settings > Bluetooth & devices > USB after the reboot.
+    Set-RegDword 'HKCU:\Software\Microsoft\Shell\USB' 'NotifyOnUsbErrors' 0
+    Write-Ok 'USB error notifications off'
+
+    # 10.13 Taskbar badges off. ("Show contacts on the taskbar" no longer exists.)
+    Set-RegDword 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' 'TaskbarBadges' 0
+    Write-Ok 'Taskbar badges off'
+
+    # 10.15 Indexing: Set-SearchIndexing (Windows Search service disabled).
+}
+
+function Set-SearchIndexing {
+    # Guide 10.15 (indexing off on every drive), done the WATCHOUT 6 way:
+    # disabling the Windows Search service (WSearch) stops indexing on all
+    # drives at once. Start menu and Explorer search still work, without an
+    # index (slower). Only WSearch is touched here; the rest of the guide's
+    # chapter 11 service list is deliberately not applied on WATCHOUT 7.
+    # [Uncertain] WATCHOUT 7 is not known to depend on Windows Search;
+    # confirm on a test machine.
+    Write-Step 'Indexing off (guide 10.15: Windows Search service)'
+    $svc = Get-CimInstance Win32_Service -Filter "Name='WSearch'" -ErrorAction SilentlyContinue
+    if (-not $svc) {
+        Write-Host '  [--]   WSearch service not present (removed by debloat?)' -ForegroundColor DarkGray
+        return
+    }
+
+    # Previous start type saved for rollback first (same CSV format as the
+    # update-services backup, so the same restore line works).
+    $backup = Join-Path $ScriptDir "SearchService_Backup_$Stamp.csv"
+    [pscustomobject]@{ Name = $svc.Name; StartType = $(if ($svc.StartMode -eq 'Auto') { 'Automatic' } else { $svc.StartMode }) } |
+        Export-Csv -Path $backup -NoTypeInformation
+
+    if ($svc.StartMode -eq 'Disabled') {
+        Write-Ok 'WSearch already disabled'
+    }
+    else {
+        try {
+            Set-Service -Name 'WSearch' -StartupType Disabled -ErrorAction Stop
+            Stop-Service -Name 'WSearch' -Force -ErrorAction SilentlyContinue
+        }
+        catch { Write-Warn "WSearch: could not disable ($($_.Exception.Message))"; return }
+
+        # Read back instead of trusting the call.
+        $after = Get-CimInstance Win32_Service -Filter "Name='WSearch'"
+        if ($after.StartMode -eq 'Disabled') { Write-Ok 'WSearch (Windows Search) disabled: no indexing on any drive' }
+        else { Write-Warn "WSearch is still '$($after.StartMode)' after the change." }
+    }
+    Write-Host "  [i]    Restore: Import-Csv '$backup' | ForEach-Object { Set-Service `$_.Name -StartupType `$_.StartType }" -ForegroundColor DarkGray
 }
 
 function Get-WatchoutInstallPath {
@@ -695,9 +833,11 @@ function Invoke-PostInstall {
     Set-NicPowerConfig
     Set-NetworkLocation
     Set-NotificationPreferences
+    Set-WindowsSettings
     Add-GuidePolicies
     Set-UpdateFreeze
     Set-PerformanceRegistry
+    Set-SearchIndexing
     Set-DefenderConfig
     Invoke-PolicyApply
 }
@@ -719,6 +859,7 @@ try {
     }
     if ($Phase -eq 'PostInstall') {
         Write-Host '  Manual: guide 7.2 "User cannot change location" (secpol.msc > Network List Manager Policies), if wanted.' -ForegroundColor DarkGray
+        Write-Host '  After the reboot: Performance Options shows "Adjust for best performance"; Scale = 100 % on every output.' -ForegroundColor DarkGray
     }
 }
 finally {

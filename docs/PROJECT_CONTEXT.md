@@ -138,7 +138,14 @@ or real hardware.
 - Working directory default: `.wo` next to the install; move it to the media
   RAID0 via Nodes → Node Properties → Change Working Directory (folder must exist).
 - Services: owner keeps WinUtil "Set to Manual"; WO7 script does not disable
-  chapter-11 services.
+  chapter-11 services (only WSearch, see below).
+- Oct 2026 (owner's decision): WO7 PostInstall also applies what WO6 automates
+  for guide ch. 10 and 12.3: `Set-WindowsSettings` copied unchanged (UAC never
+  notify, visual effects, Remote Assistance off, No Sounds, defrag schedule
+  off, USB notifications off, taskbar badges off), indexing off by disabling
+  WSearch (CSV backup), and Win8DpiScaling 1 / LogPixels 96. Adapter bindings
+  (10.10) and the chapter 11 service list stay WO6-only. WATCHOUT 7 not
+  depending on Windows Search is **[Uncertain]**.
 - Dataton recommends keeping Windows 11 updated for WO7 rendering — the owner
   instead updates once at build time, then freezes for good.
 - NVIDIA: Power Management Mode = Prefer Maximum Performance, V-Sync Off;

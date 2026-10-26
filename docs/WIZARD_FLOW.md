@@ -154,27 +154,27 @@ pick the list); until then this section stays manual.
 
 ### WO7 §8 Windows settings from the Dataton guide
 
-**Decided (OQ 14): WO7-08.1 to WO7-08.7 will be automated in
-`WO7-Setup.ps1 -Phase PostInstall`, ported from `Set-WindowsSettings` in
-`WO6-Setup.ps1`.** That is a script change in its own PR (MILESTONES "S1"),
-verified on a VM before the WO7 checklist moves these items into the §9
-"Applied by PostInstall" list. Until it lands, the steps below stay manual.
-After it lands, each becomes a **C** (read-back after the PostInstall reboot,
-same values as listed) and the Open button stays for a visual check.
-WO7-08.8 to WO7-08.12 stay manual: `Set-WindowsSettings` does not cover them.
+**Automated since S1 (OQ 14, Oct 2026):** `WO7-Setup.ps1 -Phase PostInstall`
+now applies WO7-08.1 to 08.7 (WO6's `Set-WindowsSettings`, copied unchanged),
+08.9 (indexing off by disabling the Windows Search service) and the 96 DPI
+values behind 08.10. The WO7 checklist lists them as "Applied by PostInstall"
+and checks them in §10. In the wizard these rows are **C** steps run after
+the PostInstall reboot (they also appear in the §10 audit, S4); their Open
+buttons stay for a visual check. Still manual: 08.8 startup apps, 08.10
+scale per output, 08.11 bindings, 08.12 Wake-on-LAN, 08.16 services.
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
-| WO7-08.1 | UAC → **Never notify** (10.8) | M+C | Open `UserAccountControlSettings.exe`. C†: `HKLM\…\Policies\System` `ConsentPromptBehaviorAdmin = 0`, `PromptOnSecureDesktop = 0` (the values the WO6 script uses for "Never notify") | |
-| WO7-08.2 | Visual effects → Adjust for best performance (10.3; skip if ticked in WinUtil) | M+C | Open `SystemPropertiesPerformance.exe`. C†: `HKCU\…\Explorer\VisualEffects` `VisualFXSetting = 2` | |
-| WO7-08.3 | Remote Assistance off (10.4) | M+C | Open `SystemPropertiesRemote.exe`. C†: `HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance` `fAllowToGetHelp = 0` | |
-| WO7-08.4 | Sounds → "No Sounds" (10.7) | M+C | Open `mmsys.cpl`. C†: `HKCU\AppEvents\Schemes` default = `.None` | |
-| WO7-08.5 | `dfrgui` → untick "Run on a schedule" (10.9) | M+C | Open `dfrgui`. C†: `Get-ScheduledTask -TaskPath '\Microsoft\Windows\Defrag\' -TaskName ScheduledDefrag` → `Disabled` | |
-| WO7-08.6 | USB: connection and USB-issue notifications off (10.12) | M+C | Open `ms-settings:usb`. C†: `HKCU\Software\Microsoft\Shell\USB` `NotifyOnUsbErrors = 0` **[Uncertain value name]** | |
-| WO7-08.7 | Taskbar: show badges off (10.13) | M+C | Open `ms-settings:taskbar`. C†: `HKCU\…\Explorer\Advanced` `TaskbarBadges = 0` | |
+| WO7-08.1 | UAC → **Never notify** (10.8) | C (after ⟳ R3) | Open `UserAccountControlSettings.exe`. C†: `HKLM\…\Policies\System` `ConsentPromptBehaviorAdmin = 0`, `PromptOnSecureDesktop = 0` (the values the WO6 script uses for "Never notify") | |
+| WO7-08.2 | Visual effects → Adjust for best performance (10.3; skip if ticked in WinUtil) | C (after ⟳ R3) | Open `SystemPropertiesPerformance.exe`. C†: `HKCU\…\Explorer\VisualEffects` `VisualFXSetting = 2` | |
+| WO7-08.3 | Remote Assistance off (10.4) | C (after ⟳ R3) | Open `SystemPropertiesRemote.exe`. C†: `HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance` `fAllowToGetHelp = 0` | |
+| WO7-08.4 | Sounds → "No Sounds" (10.7) | C (after ⟳ R3) | Open `mmsys.cpl`. C†: `HKCU\AppEvents\Schemes` default = `.None` | |
+| WO7-08.5 | `dfrgui` → untick "Run on a schedule" (10.9) | C (after ⟳ R3) | Open `dfrgui`. C†: `Get-ScheduledTask -TaskPath '\Microsoft\Windows\Defrag\' -TaskName ScheduledDefrag` → `Disabled` | |
+| WO7-08.6 | USB: connection and USB-issue notifications off (10.12) | C (after ⟳ R3) | Open `ms-settings:usb`. C†: `HKCU\Software\Microsoft\Shell\USB` `NotifyOnUsbErrors = 0` **[Uncertain value name]** | |
+| WO7-08.7 | Taskbar: show badges off (10.13) | C (after ⟳ R3) | Open `ms-settings:taskbar`. C†: `HKCU\…\Explorer\Advanced` `TaskbarBadges = 0` | |
 | WO7-08.8 | Startup apps: off for everything not needed (10.14) | M | Open `ms-settings:startupapps` | |
-| WO7-08.9 | Indexing off on every drive (10.15) | M+C | C†: `Win32_Volume.IndexingEnabled = False` for every fixed volume | |
-| WO7-08.10 | Display scale 100 % on every output (12.3) | M+C | Open `ms-settings:display`. C†: per-monitor DPI = 96 (`GetDpiForMonitor`, app is PerMonitorV2-aware) | |
+| WO7-08.9 | Indexing off on every drive (10.15) | C (after ⟳ R3) | PostInstall disables the Windows Search service (S1). C: `Get-Service WSearch` → `StartType = Disabled`. C† (informational): `Win32_Volume.IndexingEnabled` per fixed volume | |
+| WO7-08.10 | Display scale 100 % on every output (12.3) | M+C | PostInstall also writes `Win8DpiScaling = 1`, `LogPixels = 96` (S1; system DPI only **[Uncertain]** for multi-display). Open `ms-settings:display`. C†: per-monitor DPI = 96 (`GetDpiForMonitor`, app is PerMonitorV2-aware) | |
 | WO7-08.11 | `ncpa.cpl` → each show adapter: everything except IPv4 unticked; keep Client for MS Networks / File and Printer Sharing for shares (10.10) | M+C | Open `ncpa.cpl`. C†: `Get-NetAdapterBinding` per physical adapter — list what is still enabled (informational: the checklist allows exceptions) | |
 | WO7-08.12 | Wake-on-LAN: BIOS + NIC "Wake on Magic Packet" = Enabled (10.11) | M+C | C†: `Get-NetAdapterAdvancedProperty` matching "Wake on Magic Packet" (display name is vendor-specific) | |
 | WO7-08.16 | Services: WinUtil "Set to Manual" covers it; optionally disable Print Spooler, Fax, Bluetooth; never any WATCHOUT/Dataton service | M | Open `services.msc`. Not automated for WO7. | |
@@ -396,8 +396,10 @@ step it affects and in the report.
 | `NewNetworkWindowOff` keeps the discovery flyout hidden | PostInstall summary |
 | Firewall policies may not show in gpedit's "Advanced Security" node; verify in `wf.msc` | PostInstall summary, verify |
 | `NoInplaceSharing` value name | PostInstall summary |
-| `UserPreferencesMask 90 12 03 80 10 00 00 00` (WO6; WO7 too once S1 lands) | WO6-09.6, WO7-08.2 |
-| `NotifyOnUsbErrors` value (WO6 script; WO7 too once S1 lands) | WO7-08.6, WO6-09.7 |
+| `UserPreferencesMask 90 12 03 80 10 00 00 00` (both scripts since S1) | WO6-09.6, WO7-08.2 |
+| `NotifyOnUsbErrors` value (both scripts since S1) | WO7-08.6, WO6-09.7 |
+| WATCHOUT 7 does not depend on Windows Search (WSearch disabled, S1) | WO7-08.9 |
+| `LogPixels` sets the system DPI only, not each display's scale | WO7-08.10, WO6-09.1 |
 | DirectShow `ThreadPriority` effect on current Windows (WO6) | PostInstall summary |
 | `HideAutoLogonUI` likely no effect on Pro (WO6) | PostInstall summary |
 | `SystemResponsiveness` < 10 treated as 10 | WO7-10.3c, WO6 report |
