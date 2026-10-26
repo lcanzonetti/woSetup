@@ -152,6 +152,11 @@
     Custom location of WATCHPOINT's "Shows" folder. Passed to WATCHPOINT as
     -ShowsPath and used for the Defender exclusion. Default: <install>\Shows.
 
+.PARAMETER Audit
+    Read-only check, with the same phase and options as a real run: every
+    setting, registry value, policy, service, task and adapter property the
+    phase applies is reported as [SET], [NOT SET] or [N/A]. Changes nothing.
+
 .PARAMETER ResultPath
     Optional. File to write a JSON summary of the run to (phase, effective
     options, status, warnings, backups with restore commands, LGPO use,
@@ -162,6 +167,8 @@
     .\WO6-Setup.ps1 -Phase PreUpdate
 .EXAMPLE
     .\WO6-Setup.ps1 -Phase PostInstall
+.EXAMPLE
+    .\WO6-Setup.ps1 -Phase PostInstall -Audit
 .EXAMPLE
     .\WO6-Setup.ps1 -Phase PostInstall -ShowsPath 'E:\Shows' -StartDelay 15
 .EXAMPLE
@@ -197,6 +204,8 @@ param(
     [string]$WatchoutPath,
     [string]$ShowsPath,
 
+    [switch]$Audit,
+
     [string]$ResultPath
 )
 
@@ -205,14 +214,86 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = $PSScriptRoot
 $Stamp     = Get-Date -Format 'yyyyMMdd_HHmmss'
-$script:TranscriptPath = Join-Path $ScriptDir "WO6-Setup_${Phase}_$Stamp.log"
+$script:TranscriptPath = Join-Path $ScriptDir "WO6-Setup_${Phase}$(if ($Audit) { '_Audit' })_$Stamp.log"
 Start-Transcript -Path $script:TranscriptPath | Out-Null
 
 # Warnings are collected so the final summary shows what needs attention.
 $script:Warnings = New-Object System.Collections.Generic.List[string]
-function Write-Step([string]$msg) { Write-Host "`n=== $msg" -ForegroundColor Cyan }
-function Write-Ok  ([string]$msg) { Write-Host "  [OK]   $msg" -ForegroundColor Green }
+function Write-Step([string]$msg) { $script:CurrentSection = $msg; Write-Host "`n=== $msg" -ForegroundColor Cyan }
+# In audit mode nothing is applied, so the "[OK] <applied>" lines are not printed.
+function Write-Ok  ([string]$msg) { if ($script:AuditMode) { return }; Write-Host "  [OK]   $msg" -ForegroundColor Green }
 function Write-Warn([string]$msg) { Write-Host "  [WARN] $msg" -ForegroundColor Yellow; $script:Warnings.Add($msg) }
+
+# ---------------------------------------------------------------------------
+# Audit mode (-Audit): read-only. Every place that would change the machine
+# checks the current value instead and reports it as [SET] (already as this
+# script applies it with these options), [NOT SET] (a real run would change
+# it) or [N/A] (not applied with these options or on this hardware). The
+# expected values come from the same code a real run uses, so audit and
+# apply cannot drift apart. Nothing is written except the transcript and the
+# optional -ResultPath file.
+# ---------------------------------------------------------------------------
+$script:AuditMode      = [bool]$Audit
+$script:CurrentSection = ''
+$script:AuditItems     = New-Object System.Collections.Generic.List[object]
+
+function Write-Audit {
+    param(
+        [ValidateSet('Set', 'NotSet', 'NA')] [string]$State,
+        [string]$Item,
+        [string]$Detail
+    )
+    $suffix = if ($Detail) { " ($Detail)" } else { '' }
+    switch ($State) {
+        'Set'    { Write-Host "  [SET]     $Item" -ForegroundColor Green }
+        'NotSet' { Write-Host "  [NOT SET] $Item$suffix" -ForegroundColor Yellow }
+        'NA'     { Write-Host "  [N/A]     $Item$suffix" -ForegroundColor DarkGray }
+    }
+    $script:AuditItems.Add([pscustomobject]@{ Section = $script:CurrentSection; Item = $Item; State = $State; Detail = $Detail })
+}
+
+function Format-AuditValue([object]$Value) {
+    # Text form used both to compare and to display values.
+    if ($null -eq $Value) { return '(none)' }
+    if ($Value -is [byte[]]) { return (($Value | ForEach-Object { $_.ToString('X2') }) -join ' ') }
+    return [string]$Value
+}
+
+function Test-RegValue {
+    # Audit: compares one registry value with what the script writes.
+    param([string]$Path, [string]$Name, [object]$Expected, [string]$Label)
+    $item = "$Path\$Name = $(Format-AuditValue $Expected)"
+    if ($Label) { $item = "$Label [$item]" }
+    $current = $null
+    $props = Get-ItemProperty -Path $Path -ErrorAction SilentlyContinue
+    if ($props -and $props.PSObject.Properties[$Name]) { $current = $props.$Name }
+    if ($null -eq $current) { Write-Audit 'NotSet' $item 'current: missing'; return }
+    if ((Format-AuditValue $current) -eq (Format-AuditValue $Expected)) { Write-Audit 'Set' $item }
+    else { Write-Audit 'NotSet' $item "current: $(Format-AuditValue $current)" }
+}
+
+function Test-ServiceStartType([string]$Name, [string]$Label, [string]$Expected = 'Disabled') {
+    # Audit: service start type (Win32_Service StartMode: Auto/Manual/Disabled).
+    $item = "$Label ($Name) = $Expected"
+    $svc = Get-CimInstance Win32_Service -Filter "Name='$Name'" -ErrorAction SilentlyContinue
+    if (-not $svc) { Write-Audit 'NA' $item 'service not present'; return }
+    if ($svc.StartMode -eq $Expected) { Write-Audit 'Set' $item }
+    else { Write-Audit 'NotSet' $item "current: $($svc.StartMode)" }
+}
+
+function Write-AuditSummary {
+    Write-Step 'Audit summary'
+    $set    = @($script:AuditItems | Where-Object { $_.State -eq 'Set' }).Count
+    $notSet = @($script:AuditItems | Where-Object { $_.State -eq 'NotSet' }).Count
+    $na     = @($script:AuditItems | Where-Object { $_.State -eq 'NA' }).Count
+    $colour = if ($notSet -eq 0) { 'Green' } else { 'Yellow' }
+    Write-Host "  Set: $set   Not set: $notSet   N/A: $na" -ForegroundColor $colour
+    if ($script:Warnings.Count -gt 0) {
+        Write-Host "  $($script:Warnings.Count) warning(s):" -ForegroundColor Yellow
+        $script:Warnings | ForEach-Object { Write-Host "   - $_" -ForegroundColor Yellow }
+    }
+    Write-Host '  Audit only: nothing was changed.' -ForegroundColor DarkGray
+}
 
 # ---------------------------------------------------------------------------
 # Run record for the optional -ResultPath file. Backups and restore commands
@@ -232,6 +313,7 @@ function Get-RunParameters {
     # Effective values, defaults included; switches as true/false.
     [ordered]@{
         Phase               = $Phase
+        Audit               = [bool]$Audit
         Role                = $Role
         DefenderMode        = $DefenderMode
         KeepFirewall        = [bool]$KeepFirewall
@@ -254,9 +336,10 @@ function Write-ResultFile([string]$Status) {
     try {
         $out = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ResultPath)
         $result = [ordered]@{
-            schemaVersion = 1
+            schemaVersion = 2
             script        = 'WO6-Setup.ps1'
             phase         = $Phase
+            mode          = $(if ($script:AuditMode) { 'Audit' } else { 'Apply' })
             status        = $Status
             fatal         = $script:Fatal
             startedAt     = $script:RunStarted.ToString('o')
@@ -266,6 +349,7 @@ function Write-ResultFile([string]$Status) {
             parameters    = Get-RunParameters
             warnings      = @($script:Warnings)
             backups       = @($script:Backups)
+            audit         = @($script:AuditItems)
             lgpo          = [ordered]@{ used = $script:LgpoUsed; textFile = $script:LgpoTextFile }
             transcript    = $script:TranscriptPath
         }
@@ -302,8 +386,19 @@ function Set-RegDword {
     # Direct registry write, creating the key if needed. Used for non-policy
     # settings and as the LGPO fallback.
     param([string]$Path, [string]$Name, [int]$Value)
+    if ($script:AuditMode) { Test-RegValue -Path $Path -Name $Name -Expected $Value; return }
     if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
     New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType DWord -Force | Out-Null
+}
+
+function Set-RegValue {
+    # String or binary registry write (Set-ItemProperty, exactly as before);
+    # in audit mode the value is checked instead. String values keep the type
+    # they already have.
+    param([string]$Path, [string]$Name, [object]$Value, [ValidateSet('String', 'Binary')] [string]$Type = 'String')
+    if ($script:AuditMode) { Test-RegValue -Path $Path -Name $Name -Expected $Value; return }
+    if ($Type -eq 'Binary') { Set-ItemProperty -Path $Path -Name $Name -Type Binary -Value $Value }
+    else { Set-ItemProperty -Path $Path -Name $Name -Value $Value }
 }
 
 function ConvertTo-LgpoText {
@@ -325,8 +420,21 @@ function ConvertTo-LgpoText {
     return $sb.ToString()
 }
 
+function Test-QueuedPolicies {
+    # Audit: each queued policy is compared with the value Windows reads:
+    # HKLM for Computer policies, HKCU of the running account for User
+    # policies. After an LGPO import and gpupdate both land there; User
+    # policies reach other accounts at their next sign-in.
+    Write-Step "Policies ($($script:Policies.Count) settings)"
+    foreach ($p in ($script:Policies | Sort-Object { $_.Scope -ne 'Computer' })) {
+        $root = if ($p.Scope -eq 'Computer') { 'HKLM:\' } else { 'HKCU:\' }
+        Test-RegValue -Path ($root + $p.Key) -Name $p.Name -Expected $p.Value -Label $p.Comment
+    }
+}
+
 function Invoke-PolicyApply {
     if ($script:Policies.Count -eq 0) { return }
+    if ($script:AuditMode) { Test-QueuedPolicies; return }
     Write-Step "Applying $($script:Policies.Count) policy settings"
     $lgpo = Join-Path $ScriptDir 'LGPO.exe'
 
@@ -408,23 +516,6 @@ function Set-PowerConfig {
     $highSrc     = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'   # High performance
     $planGuid    = '6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e56'   # our "WATCHOUT 6" clone (fixed GUID: re-runs reuse it)
 
-    $list = (& powercfg.exe /list) -join "`n"
-    if ($list -notmatch $planGuid) {
-        & powercfg.exe /duplicatescheme $ultimateSrc $planGuid | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            # Ultimate template can be missing/hidden (e.g. Modern Standby
-            # platforms): fall back to High performance.
-            & powercfg.exe /duplicatescheme $highSrc $planGuid | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warn 'Could not clone Ultimate or High performance (Modern Standby platform?). Tuning the current plan instead.'
-                $planGuid = 'SCHEME_CURRENT'
-            }
-        }
-        if ($planGuid -ne 'SCHEME_CURRENT') {
-            & powercfg.exe /changename $planGuid 'WATCHOUT 6' 'Show server plan' | Out-Null
-        }
-    }
-
     # Settings (sub-group, setting, value). Aliases where powercfg has them.
     #   SUB_SLEEP STANDBYIDLE / HIBERNATEIDLE  0 = never
     #   SUB_VIDEO VIDEOIDLE                    0 = never turn off display  (guide 10.5)
@@ -445,6 +536,58 @@ function Set-PowerConfig {
         @('SUB_PROCESSOR', 'PROCTHROTTLEMIN', 0),
         @('SUB_PROCESSOR', 'PROCTHROTTLEMAX', 100)
     )
+
+    if ($script:AuditMode) {
+        $list = (& powercfg.exe /list) -join "`n"
+        if ($list -notmatch $planGuid) {
+            Write-Audit 'NotSet' "Power plan $planGuid exists" 'current: missing'
+        }
+        else {
+            Write-Audit 'Set' "Power plan $planGuid exists"
+            $active = (& powercfg.exe /getactivescheme) -join ' '
+            if ($active -match $planGuid) { Write-Audit 'Set' 'Power plan is the active plan' }
+            else { Write-Audit 'NotSet' 'Power plan is the active plan' "current: $active" }
+            $prevEap = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                foreach ($s in $settings) {
+                    # The last two "0x........" values printed by powercfg /query
+                    # are the current AC and DC indexes. [Uncertain] Relies on the
+                    # layout of the output, not on its (localised) labels.
+                    $out = @(& powercfg.exe /query $planGuid $s[0] $s[1] 2>$null)
+                    $hex = @($out | ForEach-Object { if ($_ -match '0x([0-9a-fA-F]{8})\s*$') { [Convert]::ToInt64($Matches[1], 16) } })
+                    $item = "Power setting $($s[0]) $($s[1]) = $($s[2]) (AC and DC)"
+                    if ($hex.Count -lt 2) { Write-Audit 'NotSet' $item 'current: could not be read'; continue }
+                    $ac = $hex[$hex.Count - 2]
+                    $dc = $hex[$hex.Count - 1]
+                    if ($ac -eq $s[2] -and $dc -eq $s[2]) { Write-Audit 'Set' $item }
+                    else { Write-Audit 'NotSet' $item "current: AC $ac, DC $dc" }
+                }
+            }
+            finally { $ErrorActionPreference = $prevEap }
+        }
+        # Guide chapter 4: "powercfg /hibernate off" sets HibernateEnabled = 0.
+        Test-RegValue -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' -Name 'HibernateEnabled' -Expected 0 -Label 'Hibernation off'
+        return
+    }
+
+    $list = (& powercfg.exe /list) -join "`n"
+    if ($list -notmatch $planGuid) {
+        & powercfg.exe /duplicatescheme $ultimateSrc $planGuid | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            # Ultimate template can be missing/hidden (e.g. Modern Standby
+            # platforms): fall back to High performance.
+            & powercfg.exe /duplicatescheme $highSrc $planGuid | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warn 'Could not clone Ultimate or High performance (Modern Standby platform?). Tuning the current plan instead.'
+                $planGuid = 'SCHEME_CURRENT'
+            }
+        }
+        if ($planGuid -ne 'SCHEME_CURRENT') {
+            & powercfg.exe /changename $planGuid 'WATCHOUT 6' 'Show server plan' | Out-Null
+        }
+    }
+
     # In Windows PowerShell 5.1, redirecting a native command's stderr while
     # $ErrorActionPreference = 'Stop' turns any stderr line into a terminating
     # error. Relax it locally and rely on $LASTEXITCODE instead.
@@ -483,22 +626,41 @@ function Set-NicPowerConfig {
     foreach ($nic in $nics) {
         # Device Manager > Power Management > "Allow the computer to turn off
         # this device to save power" = unchecked.
-        try {
-            Set-NetAdapterPowerManagement -Name $nic.Name -AllowComputerToTurnOffDevice Disabled -ErrorAction Stop
-            Write-Ok "$($nic.Name): power-off by OS disabled"
+        if ($script:AuditMode) {
+            $pm = Get-NetAdapterPowerManagement -Name $nic.Name -ErrorAction SilentlyContinue
+            $item = "$($nic.Name): power-off by OS disabled"
+            if (-not $pm) { Write-Audit 'NA' $item 'not exposed by the driver' }
+            elseif ("$($pm.AllowComputerToTurnOffDevice)" -eq 'Disabled') { Write-Audit 'Set' $item }
+            else { Write-Audit 'NotSet' $item "current: $($pm.AllowComputerToTurnOffDevice)" }
         }
-        catch { Write-Warn "$($nic.Name): could not change power management ($($_.Exception.Message))" }
+        else {
+            try {
+                Set-NetAdapterPowerManagement -Name $nic.Name -AllowComputerToTurnOffDevice Disabled -ErrorAction Stop
+                Write-Ok "$($nic.Name): power-off by OS disabled"
+            }
+            catch { Write-Warn "$($nic.Name): could not change power management ($($_.Exception.Message))" }
+        }
 
         # EEE / Green Ethernet: names differ by vendor, so match by display
         # name or registry keyword, then pick whichever valid value means "off".
         $props = @(Get-NetAdapterAdvancedProperty -Name $nic.Name -ErrorAction SilentlyContinue |
             Where-Object { $_.DisplayName -match 'Energy.?Efficient|Green.?Ethernet|Power Saving Mode' -or $_.RegistryKeyword -match 'EEE' })
 
-        if ($props.Count -eq 0) { Write-Host "  [--]   $($nic.Name): no EEE/Green Ethernet property exposed" -ForegroundColor DarkGray }
+        if ($props.Count -eq 0) {
+            if ($script:AuditMode) { Write-Audit 'NA' "$($nic.Name): EEE / Green Ethernet off" 'no such property exposed' }
+            else { Write-Host "  [--]   $($nic.Name): no EEE/Green Ethernet property exposed" -ForegroundColor DarkGray }
+        }
         foreach ($p in $props) {
             $off = $p.ValidDisplayValues | Where-Object { $_ -match '^(Disabled?|Off)$' } | Select-Object -First 1
-            if (-not $off) { Write-Warn "$($nic.Name): '$($p.DisplayName)' has no recognisable 'off' value ($($p.ValidDisplayValues -join ', ')). Set by hand."; continue }
-            if ($p.DisplayValue -eq $off) { Write-Ok "$($nic.Name): '$($p.DisplayName)' already $off"; continue }
+            if (-not $off) {
+                if ($script:AuditMode) { Write-Audit 'NA' "$($nic.Name): '$($p.DisplayName)' off" "no recognisable 'off' value ($($p.ValidDisplayValues -join ', ')); check by hand"; continue }
+                Write-Warn "$($nic.Name): '$($p.DisplayName)' has no recognisable 'off' value ($($p.ValidDisplayValues -join ', ')). Set by hand."; continue
+            }
+            if ($p.DisplayValue -eq $off) {
+                if ($script:AuditMode) { Write-Audit 'Set' "$($nic.Name): '$($p.DisplayName)' = $off"; continue }
+                Write-Ok "$($nic.Name): '$($p.DisplayName)' already $off"; continue
+            }
+            if ($script:AuditMode) { Write-Audit 'NotSet' "$($nic.Name): '$($p.DisplayName)' = $off" "current: $($p.DisplayValue)"; continue }
             # NOTE: changing an advanced property briefly resets the link.
             Set-NetAdapterAdvancedProperty -Name $nic.Name -DisplayName $p.DisplayName -DisplayValue $off
             Write-Ok "$($nic.Name): '$($p.DisplayName)' -> $off"
@@ -512,6 +674,25 @@ function Set-NetworkLocation {
 
     # Force every non-domain profile to Private.
     $profiles = @(Get-NetConnectionProfile -ErrorAction SilentlyContinue | Where-Object { $_.NetworkCategory -ne 'DomainAuthenticated' })
+
+    # Presence of this key suppresses the "allow your PC to be discoverable"
+    # flyout when a new network is detected. Non-policy, written directly.
+    # [Uncertain] Long-standing (Vista-era) switch; confirm the flyout stays
+    # hidden when you plug into a new switch.
+    $k = 'HKLM:\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff'
+
+    if ($script:AuditMode) {
+        if ($profiles.Count -eq 0) { Write-Audit 'NA' 'Network category Private' 'no connected non-domain network' }
+        foreach ($np in $profiles) {
+            $item = "$($np.InterfaceAlias): network category Private"
+            if ("$($np.NetworkCategory)" -eq 'Private') { Write-Audit 'Set' $item }
+            else { Write-Audit 'NotSet' $item "current: $($np.NetworkCategory)" }
+        }
+        if (Test-Path $k) { Write-Audit 'Set' "New-network discovery flyout suppressed [$k]" }
+        else { Write-Audit 'NotSet' "New-network discovery flyout suppressed [$k]" 'current: key missing' }
+        return
+    }
+
     foreach ($np in $profiles) {
         try {
             Set-NetConnectionProfile -InterfaceIndex $np.InterfaceIndex -NetworkCategory Private -ErrorAction Stop
@@ -520,11 +701,6 @@ function Set-NetworkLocation {
         catch { Write-Warn "$($np.InterfaceAlias): could not set Private ($($_.Exception.Message))" }
     }
 
-    # Presence of this key suppresses the "allow your PC to be discoverable"
-    # flyout when a new network is detected. Non-policy, written directly.
-    # [Uncertain] Long-standing (Vista-era) switch; confirm the flyout stays
-    # hidden when you plug into a new switch.
-    $k = 'HKLM:\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff'
     if (-not (Test-Path $k)) { New-Item -Path $k -Force | Out-Null }
     Write-Ok 'New-network discovery flyout suppressed'
 }
@@ -660,6 +836,7 @@ function Set-UpdateFreeze {
     Write-Ok 'Update notifications off'
 
     if ($KeepUpdateService) {
+        if ($script:AuditMode) { Write-Audit 'NA' 'Update services and tasks disabled' '-KeepUpdateService' }
         Write-Ok 'Windows Update services left running (-KeepUpdateService): manual updates still possible'
         return
     }
@@ -681,6 +858,22 @@ function Set-UpdateFreeze {
     # Services: Background Intelligent Transfer, Windows Update, Update
     # Orchestrator. Previous start types saved for rollback first.
     $names  = 'BITS', 'wuauserv', 'UsoSvc'
+    # Update-related scheduled tasks (disabled further down).
+    $taskPaths = '\Microsoft\Windows\InstallService\', '\Microsoft\Windows\UpdateOrchestrator\',
+                 '\Microsoft\Windows\UpdateAssistant\', '\Microsoft\Windows\WaaSMedic\',
+                 '\Microsoft\Windows\WindowsUpdate\', '\Microsoft\WindowsUpdate\'
+
+    if ($script:AuditMode) {
+        foreach ($n in $names) { Test-ServiceStartType $n 'Update service' }
+        Write-Audit 'NA' 'SoftwareDistribution cleared' 'one-off action, not a setting'
+        $tasks = @(foreach ($tp in $taskPaths) { Get-ScheduledTask -TaskPath $tp -ErrorAction SilentlyContinue })
+        $on = @($tasks | Where-Object { "$($_.State)" -ne 'Disabled' })
+        $item = "Update scheduled tasks disabled ($($tasks.Count) found)"
+        if ($tasks.Count -eq 0) { Write-Audit 'NA' $item 'no tasks found' }
+        elseif ($on.Count -eq 0) { Write-Audit 'Set' $item }
+        else { Write-Audit 'NotSet' $item "still enabled: $(($on | ForEach-Object { $_.TaskName }) -join ', '); Windows protects some of them" }
+        return
+    }
     $backup = Join-Path $ScriptDir "UpdateServices_Backup_$Stamp.csv"
     Get-CimInstance Win32_Service | Where-Object { $names -contains $_.Name } | ForEach-Object {
         [pscustomobject]@{ Name = $_.Name; StartType = $(if ($_.StartMode -eq 'Auto') { 'Automatic' } else { $_.StartMode }) }
@@ -700,9 +893,6 @@ function Set-UpdateFreeze {
 
     # Update-related scheduled tasks. Some are protected by Windows and stay
     # enabled; with the three services disabled they cannot do anything.
-    $taskPaths = '\Microsoft\Windows\InstallService\', '\Microsoft\Windows\UpdateOrchestrator\',
-                 '\Microsoft\Windows\UpdateAssistant\', '\Microsoft\Windows\WaaSMedic\',
-                 '\Microsoft\Windows\WindowsUpdate\', '\Microsoft\WindowsUpdate\'
     $tasks = @(foreach ($tp in $taskPaths) { Get-ScheduledTask -TaskPath $tp -ErrorAction SilentlyContinue })
     foreach ($t in $tasks) { $t | Disable-ScheduledTask -ErrorAction SilentlyContinue | Out-Null }
     $stillOn = @($tasks | ForEach-Object { Get-ScheduledTask -TaskPath $_.TaskPath -TaskName $_.TaskName -ErrorAction SilentlyContinue } |
@@ -753,6 +943,7 @@ function Set-PerformanceRegistry {
         foreach ($k in $inst) { Set-RegDword $k.PSPath 'ForcePcieLinkSpeed' 3 }
         Write-Ok "ForcePcieLinkSpeed = 3 on $($inst.Count) display adapter instance(s)"
     }
+    elseif ($script:AuditMode) { Write-Audit 'NA' 'ForcePcieLinkSpeed = 3' '-ForcePcieLinkSpeed not used' }
 
     # 12.3 Hide the logon/welcome screen. This key belongs to the Windows
     # Embedded/IoT logon feature. [Uncertain] Likely no effect on Pro;
@@ -774,6 +965,7 @@ function Set-PerformanceRegistry {
         Set-RegDword 'HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl' 'Win32PrioritySeparation' 40
         Write-Ok 'Win32PrioritySeparation = 0x28 (production role)'
     }
+    elseif ($script:AuditMode) { Write-Audit 'NA' 'Win32PrioritySeparation = 40 (0x28)' 'Display role' }
 }
 
 function Set-WindowsSettings {
@@ -804,10 +996,10 @@ function Set-WindowsSettings {
     # 90 12 03 80 10 00 00 00 is the value commonly reported for "best
     # performance" on Windows 10/11. [Uncertain] Not documented by Microsoft;
     # verify in the dialog after the reboot (every box should be unticked).
-    Set-ItemProperty -Path $desk -Name 'UserPreferencesMask' -Type Binary -Value ([byte[]](0x90, 0x12, 0x03, 0x80, 0x10, 0x00, 0x00, 0x00))
-    Set-ItemProperty -Path $desk -Name 'DragFullWindows' -Value '0'      # "Show window contents while dragging" off
-    Set-ItemProperty -Path $desk -Name 'FontSmoothing'   -Value '0'      # "Smooth edges of screen fonts" off (part of best performance)
-    Set-ItemProperty -Path "$desk\WindowMetrics" -Name 'MinAnimate' -Value '0'   # "Animate windows when minimizing and maximizing" off
+    Set-RegValue -Path $desk -Name 'UserPreferencesMask' -Type Binary -Value ([byte[]](0x90, 0x12, 0x03, 0x80, 0x10, 0x00, 0x00, 0x00))
+    Set-RegValue -Path $desk -Name 'DragFullWindows' -Value '0'      # "Show window contents while dragging" off
+    Set-RegValue -Path $desk -Name 'FontSmoothing'   -Value '0'      # "Smooth edges of screen fonts" off (part of best performance)
+    Set-RegValue -Path "$desk\WindowMetrics" -Name 'MinAnimate' -Value '0'   # "Animate windows when minimizing and maximizing" off
 
     $adv = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
     Set-RegDword $adv 'TaskbarAnimations'   0   # "Animations in the taskbar" off
@@ -826,24 +1018,45 @@ function Set-WindowsSettings {
 
     # 10.7 Sound scheme "No Sounds": the scheme name plus an empty sound for
     # every event (setting only the name would leave the old sounds assigned).
-    try {
-        Set-ItemProperty -Path 'HKCU:\AppEvents\Schemes' -Name '(Default)' -Value '.None'
-        Get-ChildItem 'HKCU:\AppEvents\Schemes\Apps' -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.PSChildName -eq '.Current' } |
-            ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name '(Default)' -Value '' }
-        Write-Ok 'Sound scheme: No Sounds'
+    if ($script:AuditMode) {
+        $scheme = $null
+        $sp = Get-ItemProperty -Path 'HKCU:\AppEvents\Schemes' -ErrorAction SilentlyContinue
+        if ($sp -and $sp.PSObject.Properties['(default)']) { $scheme = $sp.'(default)' }
+        $withSound = @(Get-ChildItem 'HKCU:\AppEvents\Schemes\Apps' -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.PSChildName -eq '.Current' -and [string]$_.GetValue('') -ne '' })
+        $item = 'Sound scheme: No Sounds (.None, no sound assigned to any event)'
+        if ($scheme -eq '.None' -and $withSound.Count -eq 0) { Write-Audit 'Set' $item }
+        else { Write-Audit 'NotSet' $item "current: scheme '$scheme', $($withSound.Count) event(s) with a sound" }
     }
-    catch { Write-Warn "Sound scheme not changed: $($_.Exception.Message)" }
+    else {
+        try {
+            Set-ItemProperty -Path 'HKCU:\AppEvents\Schemes' -Name '(Default)' -Value '.None'
+            Get-ChildItem 'HKCU:\AppEvents\Schemes\Apps' -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.PSChildName -eq '.Current' } |
+                ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name '(Default)' -Value '' }
+            Write-Ok 'Sound scheme: No Sounds'
+        }
+        catch { Write-Warn "Sound scheme not changed: $($_.Exception.Message)" }
+    }
 
     # 10.9 Automatic disk optimisation schedule off. The guide's replacement
     # (13.2, retrim at logon) is not applied by this script; NTFS still sends
     # TRIM to SSDs as files are deleted. Run "defrag C: /L" by hand in
     # maintenance windows if you want a full retrim.
-    try {
-        Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Defrag\' -TaskName 'ScheduledDefrag' -ErrorAction Stop | Out-Null
-        Write-Ok 'Scheduled disk optimisation off'
+    if ($script:AuditMode) {
+        $t = Get-ScheduledTask -TaskPath '\Microsoft\Windows\Defrag\' -TaskName 'ScheduledDefrag' -ErrorAction SilentlyContinue
+        $item = 'Scheduled disk optimisation off (\Microsoft\Windows\Defrag\ScheduledDefrag)'
+        if (-not $t) { Write-Audit 'NA' $item 'task not present' }
+        elseif ("$($t.State)" -eq 'Disabled') { Write-Audit 'Set' $item }
+        else { Write-Audit 'NotSet' $item "current: $($t.State)" }
     }
-    catch { Write-Warn "Could not disable the ScheduledDefrag task: $($_.Exception.Message)" }
+    else {
+        try {
+            Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Defrag\' -TaskName 'ScheduledDefrag' -ErrorAction Stop | Out-Null
+            Write-Ok 'Scheduled disk optimisation off'
+        }
+        catch { Write-Warn "Could not disable the ScheduledDefrag task: $($_.Exception.Message)" }
+    }
 
     # 10.12 USB notifications off ("Notify me if there are issues connecting
     # to USB devices"). [Uncertain] Value name per Windows 10/11 builds; check
@@ -861,7 +1074,10 @@ function Set-WindowsSettings {
 function Set-AdapterBindings {
     # Guide 10.10: on every physical adapter, unbind everything except IPv4.
     Write-Step 'Network adapter bindings (guide 10.10)'
-    if ($KeepAdapterBindings) { Write-Ok 'Skipped (-KeepAdapterBindings)'; return }
+    if ($KeepAdapterBindings) {
+        if ($script:AuditMode) { Write-Audit 'NA' 'IPv4-only adapter bindings (guide 10.10)' '-KeepAdapterBindings' }
+        Write-Ok 'Skipped (-KeepAdapterBindings)'; return
+    }
 
     # Microsoft component IDs only; vendor bindings (e.g. Dante, NDI, teaming)
     # are left alone because their purpose is unknown to the script.
@@ -876,6 +1092,20 @@ function Set-AdapterBindings {
         'ms_implat' = 'Microsoft Network Adapter Multiplexor Protocol'
     }
     $nics = @(Get-NetAdapter -Physical | Where-Object { $_.Status -ne 'Disabled' })
+    if ($script:AuditMode) {
+        foreach ($nic in $nics) {
+            $v4 = Get-NetAdapterBinding -Name $nic.Name -ComponentID 'ms_tcpip' -ErrorAction SilentlyContinue
+            $item = "$($nic.Name): IPv4 (ms_tcpip) bound"
+            if ($v4 -and $v4.Enabled) { Write-Audit 'Set' $item } else { Write-Audit 'NotSet' $item 'current: not bound' }
+            foreach ($id in $unbind.Keys) {
+                $b = Get-NetAdapterBinding -Name $nic.Name -ComponentID $id -ErrorAction SilentlyContinue
+                if (-not $b) { continue }   # component not on this adapter: nothing to unbind
+                $item = "$($nic.Name): $($unbind[$id]) ($id) unbound"
+                if (-not $b.Enabled) { Write-Audit 'Set' $item } else { Write-Audit 'NotSet' $item 'current: bound' }
+            }
+        }
+        return
+    }
     foreach ($nic in $nics) {
         # Make sure IPv4 itself is bound before removing the rest.
         Enable-NetAdapterBinding -Name $nic.Name -ComponentID 'ms_tcpip' -Confirm:$false -ErrorAction SilentlyContinue
@@ -898,7 +1128,10 @@ function Set-GuideServices {
     # Guide chapter 11 list, mapped to Windows 11 service names. Services not
     # present on this machine are skipped. Previous start types are saved first.
     Write-Step 'Services (guide ch. 11)'
-    if ($KeepServices) { Write-Ok 'Skipped (-KeepServices)'; return }
+    if ($KeepServices) {
+        if ($script:AuditMode) { Write-Audit 'NA' 'Guide ch. 11 services disabled' '-KeepServices' }
+        Write-Ok 'Skipped (-KeepServices)'; return
+    }
 
     $list = [ordered]@{
         'bthserv' = 'Bluetooth Support'; 'BTAGService' = 'Bluetooth Audio Gateway'; 'BthAvctpSvc' = 'AVCTP (Bluetooth)'
@@ -944,6 +1177,16 @@ function Set-GuideServices {
     # Backup of current start types (Auto/Manual/Disabled) for rollback.
     $backup = Join-Path $ScriptDir "Services_Backup_$Stamp.csv"
     $present = @(Get-CimInstance Win32_Service | Where-Object { $list.Contains($_.Name) })
+    if ($script:AuditMode) {
+        foreach ($svc in $present) {
+            $item = "Service $($svc.Name) = Disabled ($($list[$svc.Name]))"
+            if ($KeepService -contains $svc.Name) { Write-Audit 'NA' $item '-KeepService' }
+            elseif ($svc.StartMode -eq 'Disabled') { Write-Audit 'Set' $item }
+            else { Write-Audit 'NotSet' $item "current: $($svc.StartMode)" }
+        }
+        Write-Audit 'NA' "$($list.Count - $present.Count) other listed service(s)" 'not present on this machine'
+        return
+    }
     $present | ForEach-Object {
         [pscustomobject]@{ Name = $_.Name; StartType = $(if ($_.StartMode -eq 'Auto') { 'Automatic' } else { $_.StartMode }) }
     } | Export-Csv -Path $backup -NoTypeInformation
@@ -999,6 +1242,33 @@ function Get-WatchoutExes([string]$install) {
         Where-Object { Test-Path $_ }
 }
 
+function Test-WatchpointTask([string]$Execute, [string]$Arguments, [string]$WorkingDirectory, [string]$User) {
+    # Audit of the guide 13.1 task that Set-WatchoutApp registers.
+    $t = Get-ScheduledTask -TaskPath '\WATCHOUT\' -TaskName 'WATCHPOINT auto-start' -ErrorAction SilentlyContinue
+    if (-not $t) { Write-Audit 'NotSet' 'Task \WATCHOUT\WATCHPOINT auto-start exists' 'current: missing'; return }
+    Write-Audit 'Set' 'Task \WATCHOUT\WATCHPOINT auto-start exists'
+    $a = @($t.Actions)[0]
+    $checks = @(
+        @('Program',              "$($a.Execute)",                      $Execute),
+        @('Arguments',            "$($a.Arguments)",                    $Arguments),
+        @('Working directory',    "$($a.WorkingDirectory)",             $WorkingDirectory),
+        @('Run level',            "$($t.Principal.RunLevel)",           'Highest'),
+        @('Execution time limit', "$($t.Settings.ExecutionTimeLimit)",  'PT0S'),
+        @('Priority',             "$($t.Settings.Priority)",            '4')
+    )
+    foreach ($c in $checks) {
+        $item = "WATCHPOINT task: $($c[0]) = '$($c[2])'"
+        if ($c[1] -eq $c[2]) { Write-Audit 'Set' $item } else { Write-Audit 'NotSet' $item "current: '$($c[1])'" }
+    }
+    # Registered for DOMAIN\user; Task Scheduler may report either form.
+    $uid = "$($t.Principal.UserId)"
+    $item = "WATCHPOINT task: runs as $User"
+    if ($uid -eq $User -or $uid -eq ($User -split '\\')[-1]) { Write-Audit 'Set' $item } else { Write-Audit 'NotSet' $item "current: '$uid'" }
+    $logon = @($t.Triggers | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_TaskLogonTrigger' })
+    if ($logon.Count -gt 0) { Write-Audit 'Set' 'WATCHPOINT task: starts at logon' }
+    else { Write-Audit 'NotSet' 'WATCHPOINT task: starts at logon' 'current: no logon trigger' }
+}
+
 function Set-WatchoutApp {
     # WATCHOUT 6 specifics: firewall program rules (-KeepFirewall) and the
     # WATCHPOINT logon task (guide 13.1, display role).
@@ -1017,15 +1287,29 @@ function Set-WatchoutApp {
         # 3041 VNC) plus dynamic ones (file server, NDI, Dynamic Image Server),
         # so program rules are the only complete option. Existing rules from an
         # earlier run are replaced, so re-runs do not stack duplicates.
-        Get-NetFirewallRule -DisplayName 'WATCHOUT 6 - *' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-        foreach ($exe in $exes) {
-            $name = 'WATCHOUT 6 - ' + [IO.Path]::GetFileNameWithoutExtension($exe)
-            New-NetFirewallRule -DisplayName $name -Direction Inbound -Program $exe -Action Allow -Profile Any | Out-Null
-            Write-Ok "Firewall rule: $name"
+        if ($script:AuditMode) {
+            foreach ($exe in $exes) {
+                $name = 'WATCHOUT 6 - ' + [IO.Path]::GetFileNameWithoutExtension($exe)
+                $rule = @(Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)
+                $item = "Firewall rule '$name' (inbound allow, $exe)"
+                if ($rule.Count -gt 0 -and "$($rule[0].Enabled)" -eq 'True' -and "$($rule[0].Action)" -eq 'Allow') { Write-Audit 'Set' $item }
+                else { Write-Audit 'NotSet' $item 'current: missing or different' }
+            }
+        }
+        else {
+            Get-NetFirewallRule -DisplayName 'WATCHOUT 6 - *' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+            foreach ($exe in $exes) {
+                $name = 'WATCHOUT 6 - ' + [IO.Path]::GetFileNameWithoutExtension($exe)
+                New-NetFirewallRule -DisplayName $name -Direction Inbound -Program $exe -Action Allow -Profile Any | Out-Null
+                Write-Ok "Firewall rule: $name"
+            }
         }
     }
 
-    if ($Role -ne 'Display') { Write-Ok 'Production role: no WATCHPOINT auto-start task'; return }
+    if ($Role -ne 'Display') {
+        if ($script:AuditMode) { Write-Audit 'NA' 'WATCHPOINT auto-start task (guide 13.1)' 'Production role' }
+        Write-Ok 'Production role: no WATCHPOINT auto-start task'; return
+    }
 
     $wp = Join-Path $install 'WATCHPOINT.exe'
     if (-not (Test-Path $wp)) { Write-Warn "WATCHPOINT.exe not found in $install; auto-start task not created."; return }
@@ -1048,9 +1332,15 @@ function Set-WatchoutApp {
     # starts the program at below-normal priority.
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -Priority 4 `
         -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
-    Register-ScheduledTask -TaskPath '\WATCHOUT\' -TaskName 'WATCHPOINT auto-start' -Action $action `
-        -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-    Write-Ok "Task \WATCHOUT\WATCHPOINT auto-start: at logon of $user, highest privileges, no time limit$(if ($argList) { ', args: ' + ($argList -join ' ') })"
+    if ($script:AuditMode) {
+        $expectedArgs = if ($argList) { $argList -join ' ' } else { '' }
+        Test-WatchpointTask -Execute $wp -Arguments $expectedArgs -WorkingDirectory $install -User $user
+    }
+    else {
+        Register-ScheduledTask -TaskPath '\WATCHOUT\' -TaskName 'WATCHPOINT auto-start' -Action $action `
+            -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+        Write-Ok "Task \WATCHOUT\WATCHPOINT auto-start: at logon of $user, highest privileges, no time limit$(if ($argList) { ', args: ' + ($argList -join ' ') })"
+    }
 
     # A Startup-folder shortcut as well would start WATCHPOINT twice.
     $startup = @("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
@@ -1078,6 +1368,21 @@ function Add-DefenderExclusions {
     $shows = if ($ShowsPath) { $ShowsPath } else { Join-Path $install 'Shows' }
     $exes  = @(Get-WatchoutExes $install)
 
+    if ($script:AuditMode) {
+        $pref = Get-MpPreference
+        foreach ($x in @($install, $shows)) {
+            if (@($pref.ExclusionPath) -contains $x) { Write-Audit 'Set' "Defender exclusion path $x" }
+            else { Write-Audit 'NotSet' "Defender exclusion path $x" 'current: missing' }
+        }
+        foreach ($e in $exes) {
+            if (@($pref.ExclusionProcess) -contains $e) { Write-Audit 'Set' "Defender exclusion process $e" }
+            else { Write-Audit 'NotSet' "Defender exclusion process $e" 'current: missing' }
+        }
+        if ($pref.ScanScheduleDay -eq 8) { Write-Audit 'Set' 'Defender scheduled scans off (ScanScheduleDay = 8)' }
+        else { Write-Audit 'NotSet' 'Defender scheduled scans off (ScanScheduleDay = 8)' "current: $($pref.ScanScheduleDay)" }
+        return
+    }
+
     try {
         Add-MpPreference -ExclusionPath @($install, $shows)        # binaries, shows, media
         if ($exes) { Add-MpPreference -ExclusionProcess $exes }    # files opened by WATCHOUT, anywhere
@@ -1094,7 +1399,10 @@ function Add-DefenderExclusions {
 
 function Set-DefenderConfig {
     Write-Step "Microsoft Defender (mode: $DefenderMode)"
-    if ($DefenderMode -eq 'Skip') { Write-Ok 'Skipped by request'; return }
+    if ($DefenderMode -eq 'Skip') {
+        if ($script:AuditMode) { Write-Audit 'NA' 'Defender settings' '-DefenderMode Skip' }
+        Write-Ok 'Skipped by request'; return
+    }
 
     # Fails if the Defender service was disabled/removed (debloat or third-party AV).
     try { $status = Get-MpComputerStatus -ErrorAction Stop }
@@ -1106,6 +1414,7 @@ function Set-DefenderConfig {
 
     # ---- Off mode: guide 7.4.8 ----
     if ($tamper) {
+        if ($script:AuditMode) { Write-Audit 'NotSet' 'Real-time protection off (guide 7.4.8)' 'Tamper Protection is on: the policies would not be written'; return }
         # Tamper Protection makes Defender ignore these policies. Writing them
         # anyway would make gpedit look correct while nothing is enforced.
         Write-Warn 'Tamper Protection is ON: real-time protection policies NOT written. Turn it off in Windows Security > Virus & threat protection > Manage settings, then re-run -Phase PostInstall.'
@@ -1121,6 +1430,16 @@ function Set-DefenderConfig {
     Add-Policy Computer $rtp 'DisableOnAccessProtection'   1 '7.4.8.2 Monitor file and program activity on your computer = Disabled'
     Add-Policy Computer 'Software\Policies\Microsoft\Windows Defender\Scan' 'ScheduleDay' 8 'Scan: Specify the day of the week to run a scheduled scan = Never'
     Write-Ok 'Real-time protection policies queued (enforced after policy refresh / reboot)'
+
+    if ($script:AuditMode) {
+        # Effective state, not only the policies (checked with the other
+        # policies at the end): Defender itself must report these off.
+        foreach ($f in 'RealTimeProtectionEnabled', 'BehaviorMonitorEnabled', 'OnAccessProtectionEnabled') {
+            $item = "Defender $f = False (effective)"
+            if ($status.$f -eq $false) { Write-Audit 'Set' $item }
+            else { Write-Audit 'NotSet' $item "current: $($status.$f)" }
+        }
+    }
 }
 
 function Invoke-PostInstall {
@@ -1149,17 +1468,20 @@ try {
         'PreUpdate'   { Invoke-PreUpdate }
         'PostInstall' { Invoke-PostInstall }
     }
-    Write-Step 'Summary'
-    if ($script:Warnings.Count -eq 0) { Write-Ok 'Completed with no warnings. Reboot now.' }
+    if ($script:AuditMode) { Write-AuditSummary }
     else {
-        Write-Host "  Completed with $($script:Warnings.Count) warning(s):" -ForegroundColor Yellow
-        $script:Warnings | ForEach-Object { Write-Host "   - $_" -ForegroundColor Yellow }
-        Write-Host '  Reboot after resolving them.' -ForegroundColor Yellow
-    }
-    if ($Phase -eq 'PostInstall') {
-        Write-Host '  Manual (see checklist): guide 7.2 "User cannot change location" in secpol.msc, startup apps,' -ForegroundColor DarkGray
-        Write-Host '  Scale = 100 % on every output, Wake-on-LAN, vendor services (Intel HDCP/HECI).' -ForegroundColor DarkGray
-        Write-Host '  Windows Update is disabled for good: check activation with "slmgr /xpr", not the Settings page.' -ForegroundColor DarkGray
+        Write-Step 'Summary'
+        if ($script:Warnings.Count -eq 0) { Write-Ok 'Completed with no warnings. Reboot now.' }
+        else {
+            Write-Host "  Completed with $($script:Warnings.Count) warning(s):" -ForegroundColor Yellow
+            $script:Warnings | ForEach-Object { Write-Host "   - $_" -ForegroundColor Yellow }
+            Write-Host '  Reboot after resolving them.' -ForegroundColor Yellow
+        }
+        if ($Phase -eq 'PostInstall') {
+            Write-Host '  Manual (see checklist): guide 7.2 "User cannot change location" in secpol.msc, startup apps,' -ForegroundColor DarkGray
+            Write-Host '  Scale = 100 % on every output, Wake-on-LAN, vendor services (Intel HDCP/HECI).' -ForegroundColor DarkGray
+            Write-Host '  Windows Update is disabled for good: check activation with "slmgr /xpr", not the Settings page.' -ForegroundColor DarkGray
+        }
     }
 }
 catch {
