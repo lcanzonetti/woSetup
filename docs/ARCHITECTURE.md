@@ -40,7 +40,7 @@ Sources of truth (unchanged by this document):
 | Item | Proposal | Note |
 | --- | --- | --- |
 | Language / UI | C#, WPF, MVVM | As in AGENTS.md. |
-| Runtime | **.NET 10 (LTS)**, `net10.0-windows`, self-contained single-file `win-x64` | **Deviation from AGENTS.md (.NET 8). (decision needed → OQ 1)** .NET 8 and .NET 9 reach end of support on **10 Nov 2026**; .NET 10 is LTS until Nov 2028 ([Microsoft .NET blog, 29 Jun 2026](https://devblogs.microsoft.com/dotnet/dotnet-8-9-end-of-support/)). A self-contained .NET 8 exe keeps running after that date but gets no more security fixes. |
+| Runtime | **.NET 10 (LTS)**, `net10.0-windows`, self-contained single-file `win-x64` | **Decided (OQ 1)**; AGENTS.md updated. .NET 8 and .NET 9 reach end of support on **10 Nov 2026**; .NET 10 is LTS until Nov 2028 ([Microsoft .NET blog, 29 Jun 2026](https://devblogs.microsoft.com/dotnet/dotnet-8-9-end-of-support/)). A self-contained .NET 8 exe keeps running after that date but gets no more security fixes. |
 | MVVM helpers | `CommunityToolkit.Mvvm` (MIT) | Only third-party runtime dependency proposed. |
 | JSON | `System.Text.Json` (in-box) | State, flow definitions, engine params. |
 | WMI / CIM | `System.Management` (Microsoft package) | Read-only checks (BIOS, volumes, services). |
@@ -352,8 +352,9 @@ Notes:
 
 - `isBaseline`: the **first** backup of each kind. A re-run of PostInstall
   backs up the *already modified* state (e.g. services already `Disabled`),
-  so restoring the latest CSV would restore "Disabled". Restore actions
-  default to the baseline and say so. (See OQ 15.)
+  so restoring the latest CSV would restore "Disabled". **Restore actions
+  always use the baseline** (decided, OQ 15). Later backups are kept in their
+  run folders and the support bundle, but are not offered for restore.
 - `optionsLockedAfter`: once that step has run, the options page shows a
   banner: *changing an option and re-running does not undo what the earlier
   run applied* (PROJECT_CONTEXT §5 "Re-running"). Options stay editable, but
@@ -680,6 +681,8 @@ Checks not written in the checklists are marked **proposed** in
 - Change WATCHOUT/Dataton services or CodeMeter.
 - Change BIOS, NVIDIA Control Panel, Tamper Protection, display scale,
   netplwiz auto-logon (guides + checks only).
-- Re-implement WinUtil tweaks (OQ 4).
+- Re-implement WinUtil tweaks. For now WinUtil is run by the operator
+  (online launch or a local offline copy, OQ 4); the owner may later move a
+  chosen subset of WinUtil tweaks into the scripts.
 - Contact the network, except where the operator explicitly starts an
-  online step (Windows Update in Settings, the optional WinUtil launch).
+  online step (Windows Update in Settings, the optional online WinUtil launch).

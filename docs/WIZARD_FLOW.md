@@ -85,7 +85,8 @@ drivers are loaded*. The wizard never runs any of these commands.
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
 | WO7-03.1 | Log in with the show (auto-logon) account | M+C | C: W-00.3 identity check; records the show account SID (resume task, later checks) | |
-| WO7-03.2 | Elevated PowerShell: `.\WO7-Setup.ps1 -Phase PreUpdate` | **A** ✈ | Engine: **WO7-Setup.ps1 -Phase PreUpdate** (no other parameters). Pre-check C†: no physical adapter `Up` (`Get-NetAdapter -Physical`). Post-check C†: `SearchOrderConfig = 0` (`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching`), policies `ExcludeWUDriversInQualityUpdate = 1`, `DontPromptForWindowsUpdate = 1` read back. | None in the checklist. The script's summary prints "Reboot now" → **OQ 12** |
+| WO7-03.2 | Elevated PowerShell: `.\WO7-Setup.ps1 -Phase PreUpdate` | **A** ✈ | Engine: **WO7-Setup.ps1 -Phase PreUpdate** (no other parameters). Pre-check C†: no physical adapter `Up` (`Get-NetAdapter -Physical`). Post-check C†: `SearchOrderConfig = 0` (`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching`), policies `ExcludeWUDriversInQualityUpdate = 1`, `DontPromptForWindowsUpdate = 1` read back. | ⟳ **R0b** (cable still unplugged; decided OQ 12) |
+| WO7-03.2a | Reboot (cable still unplugged) | M | Checklist line added Oct 2026 (the script's "Reboot now" is right, OQ 12). Pre-check C†: still no physical adapter `Up`. | ⟳ **R0b** |
 | WO7-03.3 | Install NIC driver from USB | **A** | Checklist command: `pnputil /add-driver <path>\*.inf /subdirs /install` (operator picks `<path>`). Exit code `3010` = success, reboot required → offer reboot. | ⟳ only if pnputil returns 3010 |
 | WO7-03.4 | Adapter in Device Manager without warning icon | M+C | Open `devmgmt.msc`. C†: `Get-PnpDevice -Class Net -PresentOnly \| Select FriendlyName, Status, Problem` → physical NIC `Status = OK` | |
 | WO7-03.5 | Plug in the network cable | M+C | C†: adapter `Status = Up` | |
@@ -115,8 +116,17 @@ drivers are loaded*. The wizard never runs any of these commands.
 
 Shown with the checklist note: errors about `wermgr`, `PeriodInNanoSeconds`,
 `store.db`, `FileCoAuth` and `$Env:OneDrive` are harmless on a stripped install.
-How WinUtil is started is open (OQ 4); WinUtil is launched from the internet
-(`irm christitus.com/win | iex`).
+WinUtil start (decided, OQ 4), operator's choice on this step:
+
+- **Online:** plug the cable in briefly if needed; the wizard opens a visible
+  elevated PowerShell window with `irm christitus.com/win | iex` (🌐).
+- **Offline copy:** the operator picks a local `winutil.ps1`; the wizard shows
+  and records its SHA-256 and the WinUtil version/date, then runs it elevated
+  in a visible window. Whether every selected tweak works fully offline is
+  **[Uncertain]** — check WinUtil's own log for download errors.
+
+Later, a chosen subset of WinUtil tweaks may move into the scripts (owner to
+pick the list); until then this section stays manual.
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
@@ -127,6 +137,7 @@ How WinUtil is started is open (OQ 4); WinUtil is launched from the internet
 | WO7-06.5 | Do NOT click either Ultimate Performance button | M | — | |
 | WO7-06.6 | Multiplane Overlay: leave Enabled; disable only if soak test shows flicker/blackouts | M | Note: registry method reportedly ignored on 24H2+ **[Uncertain]** | |
 | — | (after WinUtil) | C† | Pending-reboot probe; the checklist specifies no reboot here | ⟳ only if pending |
+| — | Online launch used: unplug the cable again if the machine should stay offline | M | Shown only if the cable was plugged in for this step | |
 
 ### WO7 §7 WATCHOUT 7 and NVIDIA
 
@@ -141,8 +152,14 @@ How WinUtil is started is open (OQ 4); WinUtil is launched from the internet
 
 ### WO7 §8 Windows settings from the Dataton guide
 
-All **manual** for WO7, as the checklist says (the WO6 script automates the
-equivalent chapter-10 items; whether to reuse that for WO7 is **OQ 14**).
+**Decided (OQ 14): WO7-08.1 to WO7-08.7 will be automated in
+`WO7-Setup.ps1 -Phase PostInstall`, ported from `Set-WindowsSettings` in
+`WO6-Setup.ps1`.** That is a script change in its own PR (MILESTONES "S1"),
+verified on a VM before the WO7 checklist moves these items into the §9
+"Applied by PostInstall" list. Until it lands, the steps below stay manual.
+After it lands, each becomes a **C** (read-back after the PostInstall reboot,
+same values as listed) and the Open button stays for a visual check.
+WO7-08.8 to WO7-08.12 stay manual: `Set-WindowsSettings` does not cover them.
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
@@ -244,7 +261,8 @@ text is shown for both profiles (PROJECT_CONTEXT §2 covers both).
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
 | WO6-03.1 | Log in with the show account | M+C | As WO7-03.1 | |
-| WO6-03.2 | Elevated PowerShell: `.\WO6-Setup.ps1 -Phase PreUpdate` | **A** ✈ | Engine: **WO6-Setup.ps1 -Phase PreUpdate**. Pre/post checks as WO7-03.2. | None in checklist (OQ 12) |
+| WO6-03.2 | Elevated PowerShell: `.\WO6-Setup.ps1 -Phase PreUpdate` | **A** ✈ | Engine: **WO6-Setup.ps1 -Phase PreUpdate**. Pre/post checks as WO7-03.2. | ⟳ **R0b** (decided OQ 12) |
+| WO6-03.2a | Reboot (cable still unplugged) | M | As WO7-03.2a | ⟳ **R0b** |
 | WO6-03.3 | NIC driver from USB: `pnputil /add-driver <path>\*.inf /subdirs /install` | **A** | As WO7-03.3 | ⟳ only on 3010 |
 | WO6-03.4 | Adapter in Device Manager without a warning icon | M+C | As WO7-03.4 | |
 | WO6-03.5 | Plug in the network cable | M+C | As WO7-03.5 | |
@@ -258,7 +276,7 @@ text is shown for both profiles (PROJECT_CONTEXT §2 covers both).
 | WO6-04.3 | Chipset and storage drivers | M | C† pending-reboot probe | ⟳ R2 if asked |
 | WO6-04.4 | NVIDIA driver at the tested version | M+C | C† as WO7-04.5 | ⟳ R2 if asked |
 | WO6-04.5 | Capture and audio drivers; **test each card in its vendor app before WATCHOUT** | M | — | ⟳ R2 if asked |
-| WO6-04.6 | **Unplug the network cable again if the machine will stay offline (guide ch. 8)** | M+C | C†: adapter state recorded. Conflict with §6 WinUtil needing internet → **OQ 20** | |
+| WO6-04.6 | **Unplug the network cable again if the machine will stay offline (guide ch. 8)** | M+C | C†: adapter state recorded. If WinUtil is launched online in §6, the cable is plugged in briefly there (decided, OQ 20) | |
 
 ### WO6 §5 Disks
 
@@ -275,7 +293,7 @@ text is shown for both profiles (PROJECT_CONTEXT §2 covers both).
 Same tick lists as WO7 §6 (WO6-06.1 … WO6-06.6), with the WO6 wording for the
 skip list: *IPv6 disable (the script unbinds it per adapter)*, and *PostInstall
 makes its own "WATCHOUT 6" plan*. Same harmless-errors note. Pending-reboot C†
-afterwards.
+afterwards. WinUtil start as in WO7 §6 (online or offline copy, OQ 4).
 
 ### WO6 §7 WATCHOUT 6, licence and NVIDIA
 
@@ -344,14 +362,14 @@ PostInstall with the same options after any big change; re-image when verified*.
 | Point | When | Who triggers | Profile |
 | --- | --- | --- | --- |
 | R0 | Windows Setup first reboot | Windows Setup (before the wizard exists) | both |
+| R0b | After PreUpdate, cable still unplugged (checklists updated Oct 2026, OQ 12) | wizard offers | both |
 | (opt.) | NIC driver, if `pnputil` returns 3010 | wizard offers | both |
 | R1 | Windows Update loop, as many times as needed | operator, wizard offers | both |
 | R2 | After any driver/vendor installer that asks, or when a reboot is pending | operator, wizard offers | both |
 | R3 | After PostInstall (checklist) | wizard offers | both |
 | R4 | Verification reboot: auto-logon + WATCHPOINT auto-start | operator | WO6 Display |
 
-Not a reboot point in the checklist, but printed by the script: "Reboot now"
-after PreUpdate (OQ 12). BitLocker decryption needs no reboot.
+BitLocker decryption needs no reboot.
 
 ## Options captured along the way (pre-fill for the PostInstall options page)
 
@@ -373,8 +391,8 @@ step it affects and in the report.
 | `NewNetworkWindowOff` keeps the discovery flyout hidden | PostInstall summary |
 | Firewall policies may not show in gpedit's "Advanced Security" node; verify in `wf.msc` | PostInstall summary, verify |
 | `NoInplaceSharing` value name | PostInstall summary |
-| `UserPreferencesMask 90 12 03 80 10 00 00 00` (WO6) | WO6-09.6 |
-| `NotifyOnUsbErrors` value (WO6 script; WO7 manual check) | WO7-08.6, WO6-09.7 |
+| `UserPreferencesMask 90 12 03 80 10 00 00 00` (WO6; WO7 too once S1 lands) | WO6-09.6, WO7-08.2 |
+| `NotifyOnUsbErrors` value (WO6 script; WO7 too once S1 lands) | WO7-08.6, WO6-09.7 |
 | DirectShow `ThreadPriority` effect on current Windows (WO6) | PostInstall summary |
 | `HideAutoLogonUI` likely no effect on Pro (WO6) | PostInstall summary |
 | `SystemResponsiveness` < 10 treated as 10 | WO7-08.14, WO6 report |

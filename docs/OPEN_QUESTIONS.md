@@ -8,30 +8,30 @@ while reading the scripts and checklists for `docs/ARCHITECTURE.md` and
 `docs/WIZARD_FLOW.md`. None of the recommendations is implemented; anything
 that deviates from the checklists or adds behaviour waits for the owner.
 
-| # | Topic | Blocks |
-| --- | --- | --- |
-| 1 | Tech stack / .NET version | M1 |
-| 2 | Engine: scripts as-is, result file | M2 |
-| 3 | LGPO.exe | M2 |
-| 4 | WinUtil step | M3 |
-| 5 | Code signing | M5 |
-| 6 | Single exe | M1 |
-| 7 | Machine profiles | M4 |
-| 8 | Report | M5 |
-| 9 | Diagnostics page | after M5 |
-| 10 | Untested behaviour | M2–M5 (verification plan) |
-| 11 | `-KeepService` array via `-File` | M2 |
-| 12 | Reboot after PreUpdate? | M2 |
-| 13 | WO7 §8 registry checks after the reboot | M3 |
-| 14 | WO7 §8 settings: manual or reuse WO6 automation | M3 |
-| 15 | Backups on re-run: restore from the first one | M2/M4 |
-| 16 | Proposed read-only checks (†) | M3 |
-| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 |
-| 18 | Show account must be a local administrator | M2 |
-| 19 | WO7 install-path detection takes the first "WATCHOUT" entry | M2 |
-| 20 | WO6: cable unplugged before WinUtil, which needs internet | M3 |
-| 21 | Smart App Control | M5 |
-| 22 | Finish before or after imaging | M5 |
+| # | Topic | Blocks | Status |
+| --- | --- | --- | --- |
+| 1 | Tech stack / .NET version | M1 | Decided |
+| 2 | Engine: scripts as-is, result file | M2 | Open |
+| 3 | LGPO.exe | M2 | Open |
+| 4 | WinUtil step | M3 | Decided (tweak list for S3 pending) |
+| 5 | Code signing | M5 | Open |
+| 6 | Single exe | M1 | Open |
+| 7 | Machine profiles | M4 | Open |
+| 8 | Report | M5 | Open |
+| 9 | Diagnostics page | after M5 | Open |
+| 10 | Untested behaviour | M2–M5 (verification plan) | Open |
+| 11 | `-KeepService` array via `-File` | M2 | Open |
+| 12 | Reboot after PreUpdate? | M2 | Decided |
+| 13 | WO7 §8 registry checks after the reboot | M3 | Open |
+| 14 | WO7 §8 settings: manual or reuse WO6 automation | M3 | Decided (scope to confirm) |
+| 15 | Backups on re-run: restore from the first one | M2/M4 | Decided |
+| 16 | Proposed read-only checks (†) | M3 | Open |
+| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 | Open |
+| 18 | Show account must be a local administrator | M2 | Open |
+| 19 | WO7 install-path detection takes the first "WATCHOUT" entry | M2 | Open |
+| 20 | WO6: cable unplugged before WinUtil, which needs internet | M3 | Decided |
+| 21 | Smart App Control | M5 | Open |
+| 22 | Finish before or after imaging | M5 | Open |
 
 ---
 
@@ -57,7 +57,7 @@ that deviates from the checklists or adds behaviour waits for the owner.
 - WPF does not support trimming, so the exe will be large (tens of MB)
   **[Uncertain exact size until the first build]**. Not an issue on a USB stick.
 
-**Owner decision:** _.NET 10 or stay on .NET 8?_
+**Owner decision (Oct 2026):** **.NET 10 LTS.** AGENTS.md updated.
 
 ## 2. Engine
 
@@ -134,7 +134,7 @@ the official command, clearly labelled as online.
 - The wizard records the WinUtil version/date typed by the operator in the report.
 - See item 20 for the WO6 offline conflict.
 
-**Owner decision:** _manual + optional launch? ship an exported config?_
+**Owner decision (Oct 2026):** **Manual tick list; WinUtil started either online (cable plugged in briefly) or from a local offline copy of the WinUtil script.** Later, a chosen subset of WinUtil tweaks may be integrated into the scripts — owner to pick the list (MILESTONES S3). Shipping an exported config: not decided.
 
 ## 5. Code signing
 
@@ -265,7 +265,7 @@ are applied by `gpupdate /force`, so a reboot does not look necessary.
 as-is, and add a one-line note in the wizard. Optional script fix: print
 "Reboot now" only after PostInstall.
 
-**Owner decision:** _reboot after PreUpdate or not? change the script message?_
+**Owner decision (Oct 2026):** **The scripts are right: reboot after PreUpdate.** Both checklists now have a "Reboot (cable still unplugged)" line after PreUpdate; WIZARD_FLOW has reboot point R0b.
 
 ## 13. WO7 §8 registry checks: when to run them (new)
 
@@ -293,7 +293,7 @@ truth), with read-only checks (†). If you want them automated for WO7, that
 is a change to `WO7-Setup.ps1` and to the WO7 checklist, done first in the
 script and verified on a VM, not in the wizard.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Automate them in WO7-Setup.ps1 like WO6-Setup.ps1** (MILESTONES S1, separate PR). Assumed scope: the whole `Set-WindowsSettings` function, i.e. visual effects too (WO7 checklist 10.3 says "skip if ticked in WinUtil"; applying both is harmless). Indexing (10.15) stays manual for WO7: WO6 covers it by disabling the Windows Search service, which is part of the ch. 11 service list, not of `Set-WindowsSettings`. **Confirm this scope.**
 
 ## 15. Backups when a phase is re-run (new)
 
@@ -304,11 +304,11 @@ script and verified on a VM, not in the wizard.
 backup, which then contains the already-applied policies.
 
 **Recommendation:** the wizard marks the **first** backup of each kind as
-**baseline**, keeps all of them, and restore actions default to the
-baseline (and say so). The printed restore line of the latest run is still
-shown, labelled "restores the state before this run only".
+**baseline**, keeps all of them, and restore actions use the baseline.
+Later backups stay in their run folders (and the support bundle) for
+reference only; their printed restore lines are not offered as actions.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Always use the first (baseline) backup.**
 
 ## 16. Proposed read-only checks (new)
 
@@ -382,7 +382,7 @@ the adapter is down. Alternatively, swap the order in the WO6 checklist (unplug
 after WinUtil). Either way it is your call, since it changes the checklist
 wording or order.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Re-plug the cable briefly for an online WinUtil launch, or use an offline copy of the WinUtil script** (same as item 4). Checklist order unchanged.
 
 ## 21. Smart App Control (new)
 

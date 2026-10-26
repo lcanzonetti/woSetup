@@ -28,7 +28,7 @@ those stay "not verified" until HW runs.
 **Goal:** a wizard that shows both flows, remembers where it is and comes back
 by itself after a reboot. No engine runs yet.
 
-Blocked by: **OQ 1** (stack and .NET version), **OQ 6** (single exe).
+Decided: .NET 10 LTS (OQ 1). Blocked by: **OQ 6** (single exe).
 
 Scope:
 - Solution layout (A §3); `app.manifest` (A §9); single-file publish profile.
@@ -78,7 +78,7 @@ Scope:
 - `EngineOutputParser` + warnings panel + `result.json`; summary/count
   mismatch → "could not be fully interpreted" (A §6.4).
 - `BackupCatalog`: LGPO backup folders, services CSVs, restore hints,
-  **baseline** flag (OQ 15).
+  **baseline** flag; restore always uses the baseline (decided, OQ 15).
 - `LgpoLocator`: find, Authenticode check, copy (A §6.5).
 - Pre-flight checks (A §10) as pre-checks of WO7-03.2 / WO7-09.3 / WO6-03.2 / WO6-08.4.
 - PostInstall confirmation summary from **default** options
@@ -114,8 +114,9 @@ loading functions from the AST (A §12).
 in WIZARD_FLOW works and stores evidence.
 
 Blocked by: **OQ 16** (approve the † checks), **OQ 13** (registry checks
-after reboot), **OQ 14** (WO7 §8 manual vs automated), **OQ 20** (WO6 offline
-vs WinUtil).
+after reboot). Decided: WO7 §8 settings automated via script change S1
+(OQ 14); WinUtil online or offline copy (OQ 4, OQ 20). The WO7 §8 checks are
+written against S1's values, so S1 should land before M3 ends.
 
 Scope:
 - `CheckRegistry` with all checklist checks and the approved † checks;
@@ -125,6 +126,7 @@ Scope:
   picker, exit 3010 → reboot offer), `manage-bde -off C:` (🔒, progress polling).
 - Open buttons (`ms-settings:` URIs, `.cpl`, `netplwiz`, `diskmgmt.msc`, …).
 - Windows Update loop and driver steps with pending-reboot probe.
+- WinUtil step: online launch button and offline-copy picker (SHA-256 recorded).
 - Hardware applicability: AMD RAID / MegaRAID detection → `NotApplicable`
   with operator confirmation (never silently skipped).
 - Accept-with-reason for failed checks; reasons go into state.
@@ -149,7 +151,7 @@ applicability rules.
 **Goal:** all script parameters editable, validated, previewed, saved per
 machine and reusable on twin servers; restore actions available.
 
-Blocked by: **OQ 7** (options profiles), **OQ 15** (restore from baseline).
+Blocked by: **OQ 7** (options profiles). Decided: restore always from baseline (OQ 15).
 
 Scope:
 - `Wo7Options` / `Wo6Options`, 1:1 with the scripts:
@@ -180,8 +182,8 @@ Scope:
 - Backups & tools page: restore Local GPO (`LGPO.exe /g "<backup>\{GUID}"`),
   restore services and update services from CSV (the script's printed
   commands), re-enable bindings (`Enable-NetAdapterBinding -Name <adapter>
-  -AllBindings`); each with 🔒 confirmation, baseline by default, result
-  logged.
+  -AllBindings`); each with 🔒 confirmation, always from the baseline
+  backup, result logged.
 
 Acceptance (VM-EN):
 1. Table-driven test: every option combination produces the expected
@@ -220,6 +222,14 @@ Acceptance:
    SmartScreen / Smart App Control recorded (OQ 5, OQ 21).
 
 ---
+
+## Script work (separate PRs, not wizard code)
+
+| Id | Change | Source of decision | Verification |
+| --- | --- | --- | --- |
+| **S1** | `WO7-Setup.ps1`: add `Set-WindowsSettings` from `WO6-Setup.ps1` to PostInstall (UAC never notify, Remote Assistance off, visual effects best performance incl. `UserPreferencesMask` **[Uncertain]**, No Sounds, defrag schedule off, USB notifications off **[Uncertain]**, taskbar badges off). Then update the WO7 checklist: §8 items move to the §9 "applied by PostInstall" text. | OQ 14 | Parse-check + Pester; VM-EN run, values read back after reboot; same open items as WO6 (OQ 10) |
+| S2 | (Optional, pending OQ 2) result file `-ResultPath`, `ConvertTo-LgpoText` refactor | OQ 2 | Pester + transcript equivalence |
+| S3 | (Later) chosen WinUtil tweaks folded into the scripts; owner provides the list | OQ 4 | VM-EN, per tweak |
 
 ## After M5 (not scheduled)
 

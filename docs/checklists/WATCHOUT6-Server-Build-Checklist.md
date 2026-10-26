@@ -36,6 +36,7 @@ The Dataton guide wants the machine offline during setup. Keep the cable unplugg
 
 - [ ] Log in with the show account
 - [ ] Elevated PowerShell: `.\WO6-Setup.ps1 -Phase PreUpdate`
+- [ ] Reboot (cable still unplugged)
 - [ ] NIC driver from USB: `pnputil /add-driver <path>\*.inf /subdirs /install`
 - [ ] Adapter shows in Device Manager without a warning icon
 - [ ] Plug in the network cable

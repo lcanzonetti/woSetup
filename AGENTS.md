@@ -46,7 +46,8 @@ it to `docs/OPEN_QUESTIONS.md` instead of implementing it.
 
 ## Architecture (proposed — confirm with the owner before locking in)
 
-- **C# / .NET 8, WPF, single-file self-contained** `win-x64` exe. Preferred over
+- **C# / .NET 10 (LTS), WPF, single-file self-contained** `win-x64` exe
+  (decided Oct 2026: .NET 8 ends support on 10 Nov 2026). Preferred over
   PowerShell-compiled-to-exe (PS2EXE), which antivirus engines often flag.
 - **Wizard UI**: left rail = steps from the checklist; right pane = what to do,
   "Run" for automated steps, "Verify" for checks, "Mark done" for manual steps.
