@@ -14,3 +14,9 @@ Status: **planning**. The procedure and automation already exist:
 
 The scripts need `LGPO.exe` (Microsoft Security Compliance Toolkit) next to
 them and must run elevated under Windows PowerShell 5.1.
+
+Planning documents (proposal, awaiting owner review):
+
+- `docs/ARCHITECTURE.md` – solution structure, step model, state file, resume, engine invocation, logging
+- `docs/WIZARD_FLOW.md` – every wizard step for WO7 and WO6, in checklist order
+- `docs/MILESTONES.md` – M1–M5 plan with acceptance criteria
