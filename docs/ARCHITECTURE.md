@@ -468,10 +468,53 @@ transcript". After the run, `BackupCatalog` also scans the run folder for
 `LGPO_Backup_*`, `*_Backup_*.csv` so a backup is recorded even if a line was
 missed.
 
-**Decided (OQ 2):** the scripts get an optional `-ResultPath <file>`
-parameter (script change S2) and write a JSON result at the end. When it is
-present the wizard uses it as the primary source; the text parser above stays
-as the live-log view and as a cross-check (a mismatch is shown as a warning).
+**Implemented (S2, OQ 2):** both scripts take an optional
+`-ResultPath <file>` and write a JSON summary when the run ends, whether it
+completed or failed. The wizard uses it as the primary source; the text
+parser above stays for the live log and as a cross-check (a mismatch is
+shown as a warning). Format (schema 1, UTF-8 without BOM):
+
+```json
+{
+  "schemaVersion": 1,
+  "script": "WO6-Setup.ps1",
+  "phase": "PostInstall",
+  "status": "Completed",
+  "fatal": null,
+  "startedAt": "2026-10-27T10:02:11.5330000+01:00",
+  "endedAt": "2026-10-27T10:04:52.1020000+01:00",
+  "computerName": "WO-DISP-01",
+  "userName": "WO-DISP-01\\show",
+  "parameters": { "Phase": "PostInstall", "Role": "Display", "DefenderMode": "Off",
+                  "KeepFirewall": false, "KeepServices": false,
+                  "KeepService": ["TermService", "SessionEnv", "UmRdpService"],
+                  "KeepAdapterBindings": false, "PinVersion": null,
+                  "KeepUpdateService": false, "ForcePcieLinkSpeed": false,
+                  "StartDelay": 8, "WatchoutPath": null, "ShowsPath": null },
+  "warnings": ["Tamper Protection is ON: ..."],
+  "backups": [
+    { "Kind": "ServicesCsv", "Path": "...\\Services_Backup_20261027_100211.csv",
+      "Restore": "Import-Csv '...' | ForEach-Object { Set-Service $_.Name -StartupType $_.StartType }" },
+    { "Kind": "AdapterBindings", "Path": "", "Restore": "Enable-NetAdapterBinding -Name \"Ethernet\" -AllBindings" },
+    { "Kind": "UpdateServicesCsv", "Path": "...", "Restore": "..." },
+    { "Kind": "LgpoBackup", "Path": "...\\LGPO_Backup_20261027_100211",
+      "Restore": "LGPO.exe /g \"...\\LGPO_Backup_20261027_100211\\{GUID}\"" }
+  ],
+  "lgpo": { "used": true, "textFile": "...\\lgpo_PostInstall.txt" },
+  "transcript": "...\\WO6-Setup_PostInstall_20261027_100211.log"
+}
+```
+
+- `status`: `Completed` (finished; look at `warnings`) or `Failed` (the
+  script threw; `fatal` has the message and the script still exits with the
+  same error as before).
+- `backups[].Kind`: `LgpoBackup`, `UpdateServicesCsv`, `ServicesCsv` (WO6),
+  `SearchServiceCsv` (WO7), `AdapterBindings` (WO6, restore command only).
+- `parameters` lists every option with its effective value, defaults included.
+- Writing the file can never change the run: if it fails, a
+  `[WARN] Result file not written` line is printed and the run continues.
+- The wrapper (§6.3) passes `ResultPath` in `params.json` like any option.
+- Audit items (S4) will be added as `audit[]` in schema 2.
 
 ### 6.4a Audit mode (decided OQ 10, script change S4)
 
@@ -714,7 +757,7 @@ Checks not written in the checklists are marked **proposed** in
 | Step engine, navigator, state round-trip/migration, atomic write, option → splat mapping, confirmation text, output parser (real captured transcripts as fixtures), flow validator | xUnit | Any OS, CI |
 | Wrapper (`-KeepService` array, switches, paths with spaces, UTF-8, exit codes) with a dummy script; task XML generation; runner streaming | xUnit, Windows | GitHub Actions `windows-latest` (has Windows PowerShell 5.1) |
 | Parse-check of every `.ps1` | `[System.Management.Automation.Language.Parser]::ParseFile` in `powershell.exe` | CI |
-| Pure script functions (`Get-WatchoutInstallPath`, `Add-Policy` de-duplication, LGPO text rendering, audit comparison) | Pester 5. Functions are loaded from the script's AST (`FunctionDefinitionAst`) so the test does not run the script's top level (`Start-Transcript`, mandatory `-Phase`). LGPO text rendering is inline in `Invoke-PolicyApply` today; testing it alone needs a small refactor (OQ 2, explained there). | CI |
+| Pure script functions (`Get-WatchoutInstallPath`, `Add-Policy` de-duplication, LGPO text rendering, audit comparison) | Pester 5. Functions are loaded from the script's AST (`FunctionDefinitionAst`) so the test does not run the script's top level (`Start-Transcript`, mandatory `-Phase`). LGPO text rendering is `ConvertTo-LgpoText` since S2. Tests: `tests/pester/ScriptFunctions.Tests.ps1` (both scripts). | CI |
 | Real changes | Windows 11 Pro 25H2 VM with snapshots (Hyper-V), then real hardware (ThinkStation P8 / MegaRAID box) | Manual, recorded per milestone. **Nothing is claimed to work without this.** |
 
 ---
