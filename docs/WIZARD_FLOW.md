@@ -14,7 +14,7 @@ Order and content follow the checklists exactly:
 | **M** | **Manual**: instructions + optional "Open" button + **Mark done**. |
 | **C** | **Check**: read-only verification; shows the checklist command and the expected result. |
 | **M+C** | Manual step with a check attached. |
-| **†** | **Proposed check, not written in the checklist.** Read-only, changes nothing. Included only if the owner approves (OQ 16). Without approval the step stays plain **M**. |
+| **†** | **Check not written in the checklist.** Read-only, changes nothing. All approved by the owner (Oct 2026, OQ 16); the owner may strike individual ones later. |
 | **pre-Win** | Happens before Windows exists (BIOS, Windows Setup). The wizard cannot run there: it shows these steps as a printable pre-flight list, and on first launch offers a read-only **retro-check** where one exists. |
 | **⟳ Rn** | Reboot point. The wizard stores `pendingReboot`, offers "Reboot now", and on resume confirms the reboot through `LastBootUpTime` (ARCHITECTURE §7.3). |
 | **🔒** | Explicit confirmation required (security-reducing or destructive; AGENTS.md rule 3). |
@@ -35,7 +35,7 @@ both removed or left inert at **Finish**.
 | Id | Step | Type | Uses | Reboot |
 | --- | --- | --- | --- | --- |
 | W-00.1 | Choose profile (WATCHOUT 7 / WATCHOUT 6) and role (Display / Production). Profile is locked after the first automated step. | M | — | |
-| W-00.2 | Locate **LGPO.exe** (next to the wizard, on removable drives, or browse); verify Microsoft signature, record SHA-256. | C | `Get-AuthenticodeSignature <path>` | |
+| W-00.2 | **LGPO.exe** is bundled inside the wizard exe (decided OQ 3): verify the extracted copy's Microsoft signature and SHA-256. | C | `Get-AuthenticodeSignature <path>` | |
 | W-00.3 | Environment pre-flight: elevated; show account = elevated user; Windows PowerShell 5.1; no GPO-forced execution policy; OS = Windows 11 Pro 24H2/25H2. | C | ARCHITECTURE §10 | |
 | W-00.4 | Copy wizard to `%ProgramData%\WOSetupWizard\bin`, lock folder ACL, register `\WOSetupWizard\Resume` at logon of the show account. | A | ARCHITECTURE §7 | |
 | W-00.5 | Record machine info into state/report: model, BIOS version and date, OS build. | C† | `Get-CimInstance Win32_BIOS, Win32_ComputerSystem, Win32_OperatingSystem` | |
@@ -57,7 +57,7 @@ from Windows in a vendor-neutral way).
 | WO7-01.3 | NIC driver | M | Folder captured for WO7-03.3 | |
 | WO7-01.4 | NVIDIA driver at the version in the WATCHOUT release notes, not "latest" | M | Capture: tested version (typed) → used by WO7-04.5 | |
 | WO7-01.5 | Chipset, capture and audio drivers | M | — | |
-| WO7-01.6 | WO7-Setup.ps1 and LGPO.exe in the same folder | C | Script is embedded in the wizard; LGPO.exe → W-00.2 | |
+| WO7-01.6 | WO7-Setup.ps1 and LGPO.exe in the same folder | C | Both are embedded in the wizard exe; W-00.2 verifies LGPO.exe | |
 | WO7-01.7 | BIOS: UEFI only (CSM off), Secure Boot as on last good build, Fast Boot off | M pre-Win | Retro-check C†: `Confirm-SecureBootUEFI` → **recorded**, not judged ("as on your last good build"). CSM/Fast Boot not readable from Windows. | |
 | WO7-01.8 | BIOS: write down BIOS version and storage/RAID mode | M pre-Win | Version auto-recorded (W-00.5); RAID mode typed | |
 | WO7-01.9 | RAID utility: system volume (1 TB) **first**, then RAID0 media array | M pre-Win | Retro-check C†: `Get-Disk \| Select Number, FriendlyName, Size, PartitionStyle, OperationalStatus` — shows two array disks, system volume holds C:. **[Uncertain]** how RAIDXpert2 arrays are named/numbered in `Get-Disk`. | |
@@ -85,7 +85,7 @@ drivers are loaded*. The wizard never runs any of these commands.
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
 | WO7-03.1 | Log in with the show (auto-logon) account | M+C | C: W-00.3 identity check; records the show account SID (resume task, later checks) | |
-| WO7-03.2 | Elevated PowerShell: `.\WO7-Setup.ps1 -Phase PreUpdate` | **A** ✈ | Engine: **WO7-Setup.ps1 -Phase PreUpdate** (no other parameters). Pre-check C†: no physical adapter `Up` (`Get-NetAdapter -Physical`). Post-check C†: `SearchOrderConfig = 0` (`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching`), policies `ExcludeWUDriversInQualityUpdate = 1`, `DontPromptForWindowsUpdate = 1` read back. | ⟳ **R0b** (cable still unplugged; decided OQ 12) |
+| WO7-03.2 | Elevated PowerShell: `.\WO7-Setup.ps1 -Phase PreUpdate` (preceded by `-Audit`, S4) | **A** ✈ | Engine: **WO7-Setup.ps1 -Phase PreUpdate** (no other parameters). Pre-check C†: no physical adapter `Up` (`Get-NetAdapter -Physical`). Post-check C†: `SearchOrderConfig = 0` (`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching`), policies `ExcludeWUDriversInQualityUpdate = 1`, `DontPromptForWindowsUpdate = 1` read back. | ⟳ **R0b** (cable still unplugged; decided OQ 12) |
 | WO7-03.2a | Reboot (cable still unplugged) | M | Checklist line added Oct 2026 (the script's "Reboot now" is right, OQ 12). Pre-check C†: still no physical adapter `Up`. | ⟳ **R0b** |
 | WO7-03.3 | Install NIC driver from USB | **A** | Checklist command: `pnputil /add-driver <path>\*.inf /subdirs /install` (operator picks `<path>`). Exit code `3010` = success, reboot required → offer reboot. | ⟳ only if pnputil returns 3010 |
 | WO7-03.4 | Adapter in Device Manager without warning icon | M+C | Open `devmgmt.msc`. C†: `Get-PnpDevice -Class Net -PresentOnly \| Select FriendlyName, Status, Problem` → physical NIC `Status = OK` | |
@@ -143,7 +143,7 @@ pick the list); until then this section stays manual.
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
-| WO7-07.1 | Install WATCHOUT | M+C | C†: Uninstall entry `DisplayName -match 'WATCHOUT'` with `InstallLocation` (same lookup as the script's `Get-WatchoutInstallPath`) → pre-fills `-WatchoutPath`; version captured for the report. Warn if more than one WATCHOUT entry exists (the script takes the first one). | ⟳ if installer asks |
+| WO7-07.1 | Install WATCHOUT | M+C | C†: Uninstall entry `DisplayName -match 'WATCHOUT'` with `InstallLocation` (same lookup as the script's `Get-WatchoutInstallPath`) → pre-fills `-WatchoutPath`; version captured for the report. | ⟳ if installer asks |
 | WO7-07.2 | Folder on the RAID0, then Nodes → Node Properties → **Change Working Directory** | M+C | Capture: the path → option `-WorkingDirectory`. C†: `Test-Path <path>` | |
 | WO7-07.3 | Auto-logon with `netplwiz` (missing checkbox → turn off "only allow Windows Hello sign-in") | M+C | Open `netplwiz`, `ms-settings:signinoptions`. C†: `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon` `AutoAdminLogon = 1`, `DefaultUserName = <show account>` (password never read) | |
 | WO7-07.4 | NVIDIA Control Panel: global profile "Workstation – Dynamic Streaming" | M | — | |
@@ -175,9 +175,6 @@ WO7-08.8 to WO7-08.12 stay manual: `Set-WindowsSettings` does not cover them.
 | WO7-08.10 | Display scale 100 % on every output (12.3) | M+C | Open `ms-settings:display`. C†: per-monitor DPI = 96 (`GetDpiForMonitor`, app is PerMonitorV2-aware) | |
 | WO7-08.11 | `ncpa.cpl` → each show adapter: everything except IPv4 unticked; keep Client for MS Networks / File and Printer Sharing for shares (10.10) | M+C | Open `ncpa.cpl`. C†: `Get-NetAdapterBinding` per physical adapter — list what is still enabled (informational: the checklist allows exceptions) | |
 | WO7-08.12 | Wake-on-LAN: BIOS + NIC "Wake on Magic Packet" = Enabled (10.11) | M+C | C†: `Get-NetAdapterAdvancedProperty` matching "Wake on Magic Packet" (display name is vendor-specific) | |
-| WO7-08.13 | Registry check: `TdrDelay = 15`, `TdrDdiDelay = 60` (12.2) | C | `reg query "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay` and `/v TdrDdiDelay`. The checklist's `reg add` lines are **not** executed: PostInstall applies them. **Runs after the PostInstall reboot** (checklist: "listed to check after a reboot") → OQ 13 | after ⟳ R3 |
-| WO7-08.14 | Registry check: `SystemResponsiveness = 10` (12.1; guide says 5; values < 10 reportedly treated as 10 **[Uncertain]**) | C | `reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness` | after ⟳ R3 |
-| WO7-08.15 | Registry check (Production only): `Win32PrioritySeparation = 40` (0x28) (12.3) | C | `reg query "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation`; NotApplicable for Display | after ⟳ R3 |
 | WO7-08.16 | Services: WinUtil "Set to Manual" covers it; optionally disable Print Spooler, Fax, Bluetooth; never any WATCHOUT/Dataton service | M | Open `services.msc`. Not automated for WO7. | |
 | WO7-08.17 | No auto-start task (WATCHOUT 7 runs as services; 13.1 not needed) | M (info) | — | |
 
@@ -194,6 +191,7 @@ apps, OneDrive, Cortana (WinUtil); auto-logon (§7)*.
 | WO7-09.1 | Windows Security → Manage settings → **Tamper Protection Off** | M+C | Open Windows Security (`windowsdefender://threatsettings` **[Uncertain URI on 25H2]**). C: `Get-MpComputerStatus \| Select IsTamperProtected` → `False`. Required only for `-DefenderMode Off`. | |
 | WO7-09.2 | Options (checklist option table) | M | Options page (MILESTONES M4): `-Role`, `-DefenderMode`, `-KeepFirewall`, `-PinVersion`, `-KeepUpdateService`, `-WatchoutPath`, `-WorkingDirectory`. Shows the exact command line. | |
 | WO7-09.3 | Elevated, from the show account: `.\WO7-Setup.ps1 -Phase PostInstall` | **A** 🔒 | Engine: **WO7-Setup.ps1 -Phase PostInstall** + options. Pre-checks: show account = elevated user; Tamper Protection (if Off mode); LGPO.exe. Confirmation summary (ARCHITECTURE §4.5). | |
+| WO7-09.2a | Audit before applying: `WO7-Setup.ps1 -Phase PostInstall -Audit` with the same options → each item **Set** / **Not Set** | C | Read-only (decided OQ 10; script change S4). Feeds the confirmation summary: only "Not Set" items will change. | |
 | WO7-09.4 | Read the warnings summary; fix and re-run if needed (safe to repeat) | C | Parsed `[WARN]` lines vs "Completed with N warning(s)". Re-run = same step, same options (banner if options changed: earlier changes are not undone). | |
 | WO7-09.5 | Reboot | M | | ⟳ **R3** |
 
@@ -205,12 +203,15 @@ apps, OneDrive, Cortana (WinUtil); auto-logon (§7)*.
 | WO7-10.2 | Power plan | C | `powercfg /getactivescheme` → "WATCHOUT 7" (matched by GUID `6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e57`) | |
 | WO7-10.3 | BitLocker | C | `manage-bde -status C:` → Protection Off (evaluated via `Get-BitLockerVolume`) | |
 | WO7-10.3a | Update services still disabled after the reboot (the script asks for this re-check: WaaSMedicSvc may re-enable `wuauserv`) | C | `Get-Service BITS, wuauserv, UsoSvc \| Select Name, StartType` → `Disabled`. NotApplicable with `-KeepUpdateService`. Source: script comment, not a checklist line. | |
-| WO7-08.13–15 | Registry checks from §8 (run here, see above) | C | | |
+| WO7-10.3b | Registry: `TdrDelay = 15`, `TdrDdiDelay = 60` (12.2) | C | `reg query "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay` and `/v TdrDdiDelay`. Moved from §8 to here (decided OQ 13; checklist updated). | |
+| WO7-10.3c | Registry: `SystemResponsiveness = 10` (12.1; guide says 5; values < 10 reportedly treated as 10 **[Uncertain]**) | C | `reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness` | |
+| WO7-10.3d | Registry (Production only): `Win32PrioritySeparation = 40` (0x28) (12.3) | C | `reg query "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation`; NotApplicable for Display | |
+| WO7-10.3e | Full audit after the reboot: `WO7-Setup.ps1 -Phase PostInstall -Audit` (and `-Phase PreUpdate -Audit`) → every item **Set** | C | Read-only (S4). Any "Not Set" is listed as a warning in the report. | |
 | WO7-10.4 | All nodes discover each other; asset transfer to the RAID0 works | M | — | |
 | WO7-10.5 | Optional: `secpol.msc` → Network List Manager Policies → User cannot change location | M | Open `secpol.msc` | |
 | WO7-10.6 | Soak test: representative show, several hours, all outputs | M | Optional recorder (OQ 9) | |
 | WO7-10.7 | Image the system disk | M | — | |
-| W-99 | **Finish**: remove `\WOSetupWizard\Resume`, generate report, offer support bundle. Position (before or after the imaging step) → OQ 22 | A | ARCHITECTURE §7.2 / §8 | |
+| W-99 | **Finish**: remove `\WOSetupWizard\Resume`, generate report, offer support bundle | A | ARCHITECTURE §7.2 / §8 | |
 
 ### WO7 §11 Maintenance (information page + report section, not steps)
 
@@ -236,7 +237,7 @@ Differences from WO7 are in **bold** in the step text.
 | WO6-01.5 | NIC driver | M | Folder captured | |
 | WO6-01.6 | NVIDIA driver at a version tested with your WATCHOUT 6 release | M | Capture: tested version | |
 | WO6-01.7 | Chipset, capture and audio drivers (**capture cards need Windows 11 drivers**) | M | — | |
-| WO6-01.8 | WO6-Setup.ps1 and LGPO.exe in the same folder | C | Embedded / W-00.2 | |
+| WO6-01.8 | WO6-Setup.ps1 and LGPO.exe in the same folder | C | Both embedded; W-00.2 | |
 | WO6-01.9 | BIOS: UEFI only, Fast Boot off, Secure Boot as last good build | M pre-Win | Retro-check C† as WO7-01.7 | |
 | WO6-01.10 | BIOS: write down version and storage/RAID mode | M pre-Win | W-00.5 + typed RAID mode | |
 | WO6-01.11 | RAID utility: system volume first, then media array; none Offline | M pre-Win | Retro-check C† as WO7-01.9 | |
@@ -317,6 +318,7 @@ afterwards. WinUtil start as in WO7 §6 (online or offline copy, OQ 4).
 | WO6-08.2 | **Network cable to show devices unplugged or idle (bindings and NIC changes reset the link)** | M | Included in the confirmation text | |
 | WO6-08.3 | Options (checklist option table) | M | Options page: `-Role`, `-ShowsPath`, `-StartDelay`, `-KeepService`, `-KeepServices`, `-KeepAdapterBindings`, `-KeepFirewall`, `-DefenderMode`, `-KeepUpdateService`, `-ForcePcieLinkSpeed`, `-WatchoutPath`, `-PinVersion` | |
 | WO6-08.4 | Elevated, from the show account: `.\WO6-Setup.ps1 -Phase PostInstall` (+ options) | **A** 🔒 | Engine: **WO6-Setup.ps1 -Phase PostInstall** + options via the wrapper (array `-KeepService` splatted correctly). Pre-checks as WO7-09.3. Confirmation summary includes services, bindings, firewall, Defender, Windows Update. | |
+| WO6-08.3a | Audit before applying: `WO6-Setup.ps1 -Phase PostInstall -Audit` with the same options → **Set** / **Not Set** | C | As WO7-09.2a | |
 | WO6-08.5 | Read the warnings summary; fix and re-run with the SAME options | C | As WO7-09.4 | |
 | WO6-08.6 | Keep `Services_Backup_<timestamp>.csv` and the `LGPO_Backup_<timestamp>` folder | A | Automatic: they stay in the run folder, are listed in Backups & tools and in the report, and go into the support bundle. Operator can also copy them to USB. | |
 | WO6-08.7 | Reboot | M | | ⟳ **R3** |
@@ -337,17 +339,18 @@ afterwards. WinUtil start as in WO7 §6 (online or offline copy, OQ 4).
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
-| WO6-10.1 | Reboot → auto-logon → WATCHPOINT starts full screen on its own | M | Display role only. Wizard opens after WATCHPOINT (OQ 17). | ⟳ **R4** |
+| WO6-10.1 | Reboot → auto-logon → WATCHPOINT starts full screen on its own | M | Display role only. After WO6 PostInstall the wizard starts minimised, 60 s after logon, without taking focus (decided OQ 17). | ⟳ **R4** |
 | WO6-10.2 | Task Scheduler → WATCHOUT → "WATCHPOINT auto-start": last result 0x41301 (running), no time limit | C | `Get-ScheduledTask -TaskPath '\WATCHOUT\' -TaskName 'WATCHPOINT auto-start'` → `Settings.ExecutionTimeLimit = PT0S`; `Get-ScheduledTaskInfo` → `LastTaskResult = 267009` (0x41301). Display role only. | |
 | WO6-10.3 | Defender: `Get-MpComputerStatus \| Select IsTamperProtected, RealTimeProtectionEnabled, BehaviorMonitorEnabled, OnAccessProtectionEnabled` → all False (Off mode) | C | As WO7-10.1 | |
 | WO6-10.4 | `powercfg /getactivescheme` → "WATCHOUT 6" | C | GUID `6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e56` | |
 | WO6-10.5 | `manage-bde -status C:` → Protection Off | C | As WO7-10.3 | |
 | WO6-10.5a | Update services still disabled after reboot (script note on WaaSMedicSvc) | C | As WO7-10.3a | |
+| WO6-10.5b | Full audit after the reboot (`-Audit`, both phases) → every item **Set** | C | As WO7-10.3e | |
 | WO6-10.6 | Production PC goes online: every display computer found, media transfers complete | M | — | |
 | WO6-10.7 | Remote Access from the production PC lines up with the display | M | — | |
 | WO6-10.8 | Soak test: several hours, all outputs | M | Optional recorder (OQ 9) | |
 | WO6-10.9 | Image the system disk | M | — | |
-| W-99 | **Finish** (position → OQ 22) | A | As WO7 | |
+| W-99 | **Finish** | A | As WO7 | |
 
 ### WO6 §11 Maintenance (information page + report)
 
@@ -395,7 +398,7 @@ step it affects and in the report.
 | `NotifyOnUsbErrors` value (WO6 script; WO7 too once S1 lands) | WO7-08.6, WO6-09.7 |
 | DirectShow `ThreadPriority` effect on current Windows (WO6) | PostInstall summary |
 | `HideAutoLogonUI` likely no effect on Pro (WO6) | PostInstall summary |
-| `SystemResponsiveness` < 10 treated as 10 | WO7-08.14, WO6 report |
+| `SystemResponsiveness` < 10 treated as 10 | WO7-10.3c, WO6 report |
 | Multiplane Overlay registry method ignored on 24H2+ | WO7-06.6, WO6-06.6 |
 | AMD RAID metadata at end of disk; `rccfg` carried into the OS | §2 guidance, WO7-04.2 / WO6-04.2 |
 | Broadcom 9361 / IT-mode drivers | WO6-01.4 |

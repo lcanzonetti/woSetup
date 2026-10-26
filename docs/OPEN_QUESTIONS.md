@@ -11,27 +11,29 @@ that deviates from the checklists or adds behaviour waits for the owner.
 | # | Topic | Blocks | Status |
 | --- | --- | --- | --- |
 | 1 | Tech stack / .NET version | M1 | Decided |
-| 2 | Engine: scripts as-is, result file | M2 | Open |
-| 3 | LGPO.exe | M2 | Open |
+| 2 | Engine: scripts as-is, result file | M2 | Decided (refactor: awaiting answer) |
+| 3 | LGPO.exe | M2 | Decided |
 | 4 | WinUtil step | M3 | Decided (tweak list for S3 pending) |
-| 5 | Code signing | M5 | Open |
-| 6 | Single exe | M1 | Open |
-| 7 | Machine profiles | M4 | Open |
-| 8 | Report | M5 | Open |
-| 9 | Diagnostics page | after M5 | Open |
-| 10 | Untested behaviour | M2–M5 (verification plan) | Open |
-| 11 | `-KeepService` array via `-File` | M2 | Open |
+| 5 | Code signing | M5 | Decided |
+| 6 | Single exe | M1 | Decided |
+| 7 | Machine profiles | M4 | Decided |
+| 8 | Report | M5 | Decided |
+| 9 | Diagnostics page | after M5 | Deferred |
+| 10 | Untested behaviour | M2–M5 (verification plan) | Decided (S4) |
+| 11 | `-KeepService` array via `-File` | M2 | Decided |
 | 12 | Reboot after PreUpdate? | M2 | Decided |
-| 13 | WO7 §8 registry checks after the reboot | M3 | Open |
+| 13 | WO7 §8 registry checks after the reboot | M3 | Decided |
 | 14 | WO7 §8 settings: manual or reuse WO6 automation | M3 | Decided (scope to confirm) |
 | 15 | Backups on re-run: restore from the first one | M2/M4 | Decided |
-| 16 | Proposed read-only checks (†) | M3 | Open |
-| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 | Open |
-| 18 | Show account must be a local administrator | M2 | Open |
-| 19 | WO7 install-path detection takes the first "WATCHOUT" entry | M2 | Open |
+| 16 | Proposed read-only checks (†) | M3 | Decided |
+| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 | Decided |
+| 18 | Show account must be a local administrator | M2 | Decided |
+| 19 | WO7 install-path detection takes the first "WATCHOUT" entry | M2 | Closed (not needed) |
 | 20 | WO6: cable unplugged before WinUtil, which needs internet | M3 | Decided |
-| 21 | Smart App Control | M5 | Open |
-| 22 | Finish before or after imaging | M5 | Open |
+| 21 | Smart App Control | M5 | Closed (not now) |
+| 22 | Finish before or after imaging | M5 | Closed (not now) |
+| 23 | Portable exe vs resume after reboot | M1 | **Open** |
+| 24 | Audit labels (Set / Not Set / N/A) | S4 | **Open** |
 
 ---
 
@@ -80,7 +82,9 @@ robust. Neither is a tweak; both need your OK because they touch the scripts:
    without calling LGPO.exe. AGENTS.md asks for that test; today it can only
    be done by running the whole function.
 
-**Owner decision:** _scripts as-is? result file yes/no? refactor yes/no?_
+**Owner decision (Oct 2026):** **Scripts as-is; result file yes** (MILESTONES S2). Testability refactor: explained below, **awaiting answer**.
+
+*What "testability" means:* AGENTS.md asks for automated (Pester) tests of the LGPO text rendering, i.e. that the queued policies turn into exactly the right `Computer / Key / Name / DWORD:n` lines. Today that code sits inside `Invoke-PolicyApply`, which in the same breath backs up the Local GPO, calls `LGPO.exe` and runs `gpupdate /force`, so it can only be tested by changing a real machine. Moving the dozen rendering lines into their own function (e.g. `ConvertTo-LgpoText`, called from the same place) changes no behaviour and lets CI check the text file on every commit, on any machine. Without it, that test is dropped and rendering is only checked on the VM.
 
 ## 3. LGPO.exe
 
@@ -108,7 +112,7 @@ Registry.pol later, if at all.
   VM verification; worth it only if the licence rules out asking operators
   to download LGPO themselves.
 
-**Owner decision:** _ask-and-verify OK?_
+**Owner decision (Oct 2026):** **Bundle it**: one portable exe run from a USB stick. Licence terms stay **[Uncertain]** (owner's call, own use). Plan: not committed to git, build-time download with pinned SHA-256, runtime signature check (ARCHITECTURE §6.5). "No installation" → item 23.
 
 ## 4. WinUtil step
 
@@ -164,7 +168,7 @@ file per release); decide on a certificate before giving the exe to anyone else.
     elsewhere **[Conflicting sources]**; it does not change the advice: EV is
     not worth the premium for this.
 
-**Owner decision:** _which applies to you: individual or organisation? unsigned for now?_
+**Owner decision (Oct 2026):** **Individual, unsigned**; mostly run from a USB stick. Releases ship with a SHA-256 file.
 
 ## 6. Single exe
 
@@ -175,7 +179,7 @@ file per release); decide on a certificate before giving the exe to anyone else.
 of the code; the flow files differ. Changing the profile afterwards means
 "Start over" (state archived, not deleted).
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Single exe**, profile chosen at start and locked after the first automated step.
 
 ## 7. Machine profiles
 
@@ -187,7 +191,7 @@ Import shows a diff against the current options and warns on paths that do
 not exist on this machine (e.g. `E:\Shows`). It never skips steps: a twin
 still goes through the whole flow.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Yes** (M4).
 
 ## 8. Report
 
@@ -199,7 +203,7 @@ A direct PDF export would need either a PDF library or WebView2; not worth it
 for v1. Note: "Microsoft Print to PDF" may be missing on a MicroWin build
 **[Uncertain]** — print from the workstation that receives the report instead.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Yes**, self-contained HTML (M5).
 
 ## 9. Diagnostics page
 
@@ -214,7 +218,7 @@ query fields and `logman` counters need your field list (the context file
 abbreviates them). Because the twin-server stutter is unresolved, this is
 the most useful post-v1 feature.
 
-**Owner decision:** _send the exact field/counter list you used_
+**Owner decision (Oct 2026):** **Not for now**; maybe later (M6, unscheduled).
 
 ## 10. Untested behaviour
 
@@ -234,7 +238,7 @@ the UI until done. The wizard's own checks help collect the evidence.
 Plus the hardware-only items: AMD `rccfg` carried into the OS (WO7-04.2),
 RAIDXpert2 array naming in `Get-Disk`, Broadcom 9361/IT-mode drivers.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Add an audit mode to the scripts**: every step, setting, registry key, group policy etc. is checked against what the script would apply and flagged **Set** or **Not Set** (MILESTONES S4, ARCHITECTURE §6.4a). The verification plan above stays: an audit shows a value is *set*, not that Windows *honours* it, so the [Uncertain] items still need the hands-on checks. Labels for skipped items → item 24.
 
 ---
 
@@ -252,7 +256,7 @@ only for how the wizard calls the script.
 wrapper reads JSON and splats (ARCHITECTURE §6.3). Covered by an M2
 acceptance test.
 
-**Owner decision:** _OK with the wrapper?_
+**Owner decision (Oct 2026):** **OK with the wrapper.**
 
 ## 12. Reboot after PreUpdate? (new)
 
@@ -279,7 +283,7 @@ them only after the PostInstall reboot (they appear as pending checks in §10
 until then). No `reg add` is ever run by the wizard. This is a display
 choice, not a change of order.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Move them after PostInstall.** Done: the WO7 checklist now checks them in §10 with `reg query`; WIZARD_FLOW WO7-10.3b–d.
 
 ## 14. WO7 §8 settings: manual, or reuse the WO6 automation? (new)
 
@@ -321,7 +325,7 @@ no WATCHPOINT Startup shortcut). All are reads; none changes the machine.
 **Recommendation:** approve them as a group, or strike the ones you do not
 want. Without approval those steps remain plain manual steps.
 
-**Owner decision:** _approve all / list exceptions_
+**Owner decision (Oct 2026):** **All approved**; the owner may strike individual ones later.
 
 ## 17. Wizard vs WATCHPOINT after reboot (WO6) (new)
 
@@ -336,7 +340,7 @@ focus. The operator brings it up with Alt+Tab when ready. The verification
 step asks "Did WATCHPOINT start full screen on its own?" and then reads the
 task result (WO6-10.2).
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **As recommended** (minimised, 60 s delay, no focus).
 
 ## 18. Show account must be a local administrator (new)
 
@@ -352,7 +356,7 @@ the show account is a local administrator, which also matches the WO6
 "highest privileges" WATCHPOINT task. Confirm this is always the case on your
 builds.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Yes**, always.
 
 ## 19. WO7 install-path detection takes the first "WATCHOUT" entry (new)
 
@@ -368,7 +372,7 @@ passes `-WatchoutPath` explicitly when more than one exists. Optional script
 fix later: prefer an entry with "7" in the name or a known WATCHOUT 7
 executable — that needs the exact WATCHOUT 7 file names from you.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Not needed**: firewall and Defender are fully disabled on these builds anyway. No wizard warning, no script change. (The path still matters only if `-DefenderMode Exclusions` is ever used.)
 
 ## 20. WO6: cable unplugged before WinUtil (new)
 
@@ -394,7 +398,7 @@ evaluation mode and, once on, blocks unsigned apps it does not know
 `SmartAppControlState` (read-only). Test on VM-EN in M5 with an unsigned
 build; if SAC blocks it, that is a strong argument for signing (item 5).
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Not needed for now.**
 
 ## 22. Finish before or after imaging (new)
 
@@ -407,4 +411,44 @@ the resume task and the wizard's state.
 step, and show the imaging step as the last manual item after Finish. This
 moves the wizard's own step, not a checklist item.
 
-**Owner decision:**
+**Owner decision (Oct 2026):** **Not needed for now**; Finish stays the last step.
+
+## 23. Portable exe vs resume after reboot (new)
+
+**Finding:** you want one exe that runs from the USB stick with no
+installation. AGENTS.md also requires the wizard to reopen by itself at the
+next logon after each reboot, which needs a scheduled task pointing at an exe
+path. A USB path is fragile: the drive letter can change and the stick may be
+unplugged between reboots. State and logs are not the issue: they stay on the
+machine in `%ProgramData%\WOSetupWizard` either way.
+
+Options:
+
+- **A — temporary local copy (recommended):** the USB exe copies itself to
+  `%ProgramData%\WOSetupWizard\bin` (locked down so standard users cannot
+  replace it) and the task starts that copy. No installer, nothing in
+  "Apps", no registry entries of its own; **Finish deletes the copy and the
+  task**, leaving only logs and the report. Resume always works.
+- **B — run only from the stick:** the task points at the exe on the stick
+  (identified by the stick's volume serial). If the stick is missing or got
+  another letter, nothing opens and you start it by hand; state picks up
+  where it was. Nothing is copied.
+- **C — no auto-resume:** you always start it from the stick after a reboot;
+  the wizard reopens on the right step. Simplest, but deviates from AGENTS.md.
+
+**Owner decision:** _A, B or C?_
+
+## 24. Audit labels: only Set / Not Set? (new)
+
+**Finding:** some items are deliberately not applied with the chosen
+options or hardware (`-KeepFirewall`, `-Role Production`, `-KeepService`,
+`-ForcePcieLinkSpeed` off, no AMD GPU), and a few lines are one-off actions,
+not settings (clearing `SoftwareDistribution`, `gpupdate`). Reporting those
+as "Not Set" would look like a failure.
+
+**Recommendation:** three labels: **Set**, **Not Set**, and **N/A** with the
+reason (option, hardware, or "action, not a setting"). The final audit
+passes when nothing is "Not Set".
+
+**Owner decision:** _Set / Not Set / N/A OK?_
+
