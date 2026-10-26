@@ -312,7 +312,7 @@ Location: `%ProgramData%\WOSetupWizard\state.json` (AGENTS.md).
       "arguments": { "Phase": "PreUpdate" },
       "commandLineShown": ".\\WO7-Setup.ps1 -Phase PreUpdate",
       "folder": "logs\\WO-DISP-01\\runs\\20261020_091203_PreUpdate",
-      "lgpo": { "used": true, "path": "tools\\LGPO.exe", "sha256": "…", "signer": "Microsoft Corporation" },
+      "lgpo": { "used": true, "source": "bundled", "sha256": "…", "signer": "Microsoft Corporation" },
       "exitCode": 0,
       "fatal": null,
       "warningCount": 0,
@@ -469,30 +469,81 @@ transcript". After the run, `BackupCatalog` also scans the run folder for
 `LGPO_Backup_*`, `*_Backup_*.csv` so a backup is recorded even if a line was
 missed.
 
-A machine-readable result file written by the scripts would be more robust
-than parsing. That is a (behaviour-neutral) script change, so it is **not**
-assumed here. **(decision needed → OQ 2)**
+**Decided (OQ 2):** the scripts get an optional `-ResultPath <file>`
+parameter (script change S2) and write a JSON result at the end. When it is
+present the wizard uses it as the primary source; the text parser above stays
+as the live-log view and as a cross-check (a mismatch is shown as a warning).
+
+### 6.4a Audit mode (decided OQ 10, script change S4)
+
+Both scripts get a read-only `-Audit` switch, valid with either phase and
+with the same options as a real run:
+
+```text
+.\WO7-Setup.ps1 -Phase PostInstall -Audit [same options] [-ResultPath <file>]
+```
+
+For every item the phase would apply (registry value, Local GPO policy,
+service start type, scheduled task, power setting, adapter property/binding,
+firewall rule, Defender setting) it prints one line and records it in the
+result file:
+
+| Line | Meaning |
+| --- | --- |
+| `  [SET]     <item>` | Current value already equals what the script applies with these options. |
+| `  [NOT SET] <item> (current: <value>)` | Different or missing; a real run would change it. |
+| `  [N/A]     <item> (<reason>)` | Not applied with these options or on this hardware, e.g. `-KeepFirewall`, `-Role Production`, no AMD GPU. *(Third state proposed, OQ 24.)* |
+
+Rules:
+
+- **Effective state, not just the registry** ("never pretend"): e.g.
+  Defender Off is `[SET]` only if the policy is present **and**
+  `Get-MpComputerStatus` shows real-time protection off; with Tamper
+  Protection on it is `[NOT SET] (Tamper Protection on)`.
+- User-scope policies: read from the Local GPO (`LGPO.exe /parse` of the User
+  `Registry.pol`) and from the running account's HKCU.
+- One-off actions that are not a lasting setting (empty
+  `SoftwareDistribution`, `gpupdate`) are reported as `[N/A] (action)`.
+- An audit writes nothing: no transcript side effects beyond its own log,
+  no LGPO backup, no `gpupdate`.
+
+To keep audit and apply from drifting apart, S4 restructures each script
+section so the desired value is defined once and used by both. Behaviour of
+a normal run must not change: verified by comparing the end state of a VM
+checkpoint before/after S4 (MILESTONES).
+
+The wizard runs the audit before PreUpdate/PostInstall (the confirmation
+summary lists only the `[NOT SET]` items as "will change") and again after
+the PostInstall reboot as the final verification.
 
 ### 6.5 LGPO.exe
 
-The wizard does **not** bundle LGPO.exe (licence terms unverified,
-**[Uncertain]**, OQ 3). At pre-flight it looks for `LGPO.exe` next to the
-wizard exe and on removable drives, or asks for it, then:
+**Decided (OQ 3): LGPO.exe is bundled** as an embedded resource, so the
+wizard is one exe. The licence terms ("Microsoft Security Compliance Toolkit –
+Standalone Use Terms.pdf" in the LGPO download) are still unread and stay
+**[Uncertain]**; the owner has chosen to bundle for his own use.
 
-1. checks the Authenticode signature (signed by Microsoft) and records SHA-256;
-2. copies it to `%ProgramData%\WOSetupWizard\tools\LGPO.exe`;
-3. copies it into each run folder next to the script (the scripts look in
-   `$PSScriptRoot`).
-
-If the operator continues without it, the confirmation summary says what the
-script's fallback means: *policies written directly to the registry, not
-visible in gpedit, User-scope policies reach only the current account*.
+- **Not committed to git.** The build takes it from `third_party/LGPO/LGPO.exe`
+  (git-ignored). Locally the owner puts it there; CI downloads `LGPO.zip`
+  from Microsoft's download page and checks a pinned SHA-256. The build fails
+  if the file is missing or the hash or Microsoft signature does not match.
+- At runtime it is extracted into each run folder next to the script (the
+  scripts look in `$PSScriptRoot`) and its signature/SHA-256 is checked again
+  (W-00.2). If that check fails the wizard stops before any engine run.
+- The script fallback without LGPO.exe stays possible only as an explicit
+  override, with the limits spelled out (*policies written directly to the
+  registry, not visible in gpedit, User-scope policies reach only the current
+  account*).
 
 ---
 
 ## 7. Resume after reboot
 
 ### 7.1 Self-install on first launch
+
+> **Pending OQ 23** (portable, no installation): this section describes option A.
+> The owner wants a portable exe run from a USB stick; how resume-after-reboot
+> works without a local copy is open.
 
 The wizard starts from the USB stick. Drive letters change and the stick may
 be removed, so on first launch it copies itself to
@@ -542,8 +593,11 @@ driver installers): `HKLM\…\Component Based Servicing\RebootPending`,
 
 Until `netplwiz` auto-logon is set (checklist §7), the operator signs in by
 hand and the task fires at that logon. After WO6 PostInstall, WATCHPOINT
-also starts at logon (8 s delay) and goes full screen over the wizard. See
-OQ 17 for the proposed handling.
+also starts at logon (8 s delay) and goes full screen over the wizard. **Decided
+(OQ 17):** once WO6 PostInstall has run (Display role), the resume task starts
+the wizard **minimised, 60 s after logon, without taking focus**; the
+operator brings it up with Alt+Tab after checking that WATCHPOINT went full
+screen on its own.
 
 ---
 
@@ -553,7 +607,6 @@ OQ 17 for the proposed handling.
 %ProgramData%\WOSetupWizard\
   state.json, state.json.bak
   bin\WOSetupWizard.exe
-  tools\LGPO.exe                       (operator-supplied)
   logs\<COMPUTERNAME at first run>\
     wizard.log                         app log, one line per event, local time + UTC offset
     runs\<yyyyMMdd_HHmmss>_<Phase>\    one folder per engine run
@@ -633,7 +686,7 @@ Run at first launch and again right before PreUpdate and PostInstall:
 | Windows PowerShell 5.1 present | `powershell.exe -Command $PSVersionTable.PSVersion` | Block. |
 | Execution policy not forced by GPO | `Get-ExecutionPolicy -List` (MachinePolicy/UserPolicy = Undefined) | Block with explanation. |
 | OS | `Win32_OperatingSystem` caption/build, `DisplayVersion` | Warn if not Windows 11 Pro 24H2/25H2. |
-| LGPO.exe | §6.5 | Warn + explicit confirmation to continue without. |
+| LGPO.exe (bundled) | §6.5: signature + SHA-256 of the extracted copy | Block. |
 | Network state (PreUpdate only) | `Get-NetAdapter -Physical` status | Warn if a physical adapter is Up (checklist: cable unplugged). |
 | Tamper Protection (PostInstall, DefenderMode Off) | `Get-MpComputerStatus` `IsTamperProtected` | Block until off, or the operator accepts that the script will skip the real-time policies (it warns too). |
 
@@ -670,7 +723,7 @@ Checks not written in the checklists are marked **proposed** in
 | Step engine, navigator, state round-trip/migration, atomic write, option → splat mapping, confirmation text, output parser (real captured transcripts as fixtures), flow validator | xUnit | Any OS, CI |
 | Wrapper (`-KeepService` array, switches, paths with spaces, UTF-8, exit codes) with a dummy script; task XML generation; runner streaming | xUnit, Windows | GitHub Actions `windows-latest` (has Windows PowerShell 5.1) |
 | Parse-check of every `.ps1` | `[System.Management.Automation.Language.Parser]::ParseFile` in `powershell.exe` | CI |
-| Pure script functions (`Get-WatchoutInstallPath`, `Add-Policy` de-duplication, LGPO text rendering) | Pester 5. Functions are loaded from the script's AST (`FunctionDefinitionAst`) so the test does not run the script's top level (`Start-Transcript`, mandatory `-Phase`). LGPO text rendering is inline in `Invoke-PolicyApply` today; testing it alone needs a small refactor → asked in OQ 2. | CI |
+| Pure script functions (`Get-WatchoutInstallPath`, `Add-Policy` de-duplication, LGPO text rendering, audit comparison) | Pester 5. Functions are loaded from the script's AST (`FunctionDefinitionAst`) so the test does not run the script's top level (`Start-Transcript`, mandatory `-Phase`). LGPO text rendering is inline in `Invoke-PolicyApply` today; testing it alone needs a small refactor (OQ 2, explained there). | CI |
 | Real changes | Windows 11 Pro 25H2 VM with snapshots (Hyper-V), then real hardware (ThinkStation P8 / MegaRAID box) | Manual, recorded per milestone. **Nothing is claimed to work without this.** |
 
 ---

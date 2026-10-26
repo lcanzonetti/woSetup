@@ -28,7 +28,7 @@ those stay "not verified" until HW runs.
 **Goal:** a wizard that shows both flows, remembers where it is and comes back
 by itself after a reboot. No engine runs yet.
 
-Decided: .NET 10 LTS (OQ 1). Blocked by: **OQ 6** (single exe).
+Decided: .NET 10 LTS (OQ 1), single exe with profile choice (OQ 6). Blocked by: **OQ 23** (portable vs local copy for resume).
 
 Scope:
 - Solution layout (A §3); `app.manifest` (A §9); single-file publish profile.
@@ -69,7 +69,7 @@ known); task XML generation (Windows test).
 **Goal:** the two engine phases run from the wizard, with live output, parsed
 warnings, run folders and backups recorded.
 
-Blocked by: **OQ 2** (engine as-is, result file yes/no), **OQ 3** (LGPO.exe).
+Decided: scripts as-is + result file S2 (OQ 2), LGPO.exe bundled (OQ 3). Needs **S2** merged first (or the text parser alone until then).
 
 Scope:
 - Embedded scripts (linked from `scripts/`, SHA-256 at build) + `Invoke-WOEngine.ps1` wrapper (A §6.3).
@@ -79,7 +79,8 @@ Scope:
   mismatch → "could not be fully interpreted" (A §6.4).
 - `BackupCatalog`: LGPO backup folders, services CSVs, restore hints,
   **baseline** flag; restore always uses the baseline (decided, OQ 15).
-- `LgpoLocator`: find, Authenticode check, copy (A §6.5).
+- Bundled LGPO.exe: build-time check (git-ignored `third_party/LGPO/`, CI download with pinned SHA-256), runtime extraction + signature check (A §6.5).
+- Audit runs (`-Audit`, S4) before each engine run and after the PostInstall reboot; Set / Not Set list in the UI (A §6.4a).
 - Pre-flight checks (A §10) as pre-checks of WO7-03.2 / WO7-09.3 / WO6-03.2 / WO6-08.4.
 - PostInstall confirmation summary from **default** options
   (`ConfirmationSummaryBuilder`; options UI comes in M4).
@@ -113,8 +114,8 @@ loading functions from the AST (A §12).
 **Goal:** every manual step has its instructions and Open buttons; every check
 in WIZARD_FLOW works and stores evidence.
 
-Blocked by: **OQ 16** (approve the † checks), **OQ 13** (registry checks
-after reboot). Decided: WO7 §8 settings automated via script change S1
+Decided: all † checks approved (OQ 16); WO7 registry checks moved to §10
+(OQ 13, checklist updated). Also decided: WO7 §8 settings automated via script change S1
 (OQ 14); WinUtil online or offline copy (OQ 4, OQ 20). The WO7 §8 checks are
 written against S1's values, so S1 should land before M3 ends.
 
@@ -200,7 +201,7 @@ Acceptance (VM-EN):
 **Goal:** a per-machine build report for the client file, a support bundle,
 and a releasable exe.
 
-Blocked by: **OQ 5** (signing), **OQ 8** (report format).
+Decided: unsigned, individual (OQ 5); HTML report (OQ 8). No blockers.
 
 Scope:
 - `ReportBuilder` → one self-contained HTML file (no external files, no
@@ -209,8 +210,8 @@ Scope:
   `[Uncertain]` items touched, backups with restore commands, script SHA-256s,
   captured versions (WATCHOUT, NVIDIA, WinUtil date, BIOS), timestamps.
 - Support bundle (A §8).
-- Release build: version stamping, single-file publish, SHA-256 file next to
-  the exe, signing if decided.
+- Release build: version stamping, single-file publish (LGPO.exe embedded),
+  SHA-256 file next to the exe; **unsigned** (OQ 5).
 - Operator README (how to prepare the USB stick, where LGPO.exe comes from,
   what the wizard never does).
 
@@ -218,8 +219,8 @@ Acceptance:
 1. End-to-end WO7 build on **HW-WO7** and WO6 build on **HW-WO6** following
    the wizard only (checklist used as a cross-check), including all reboots.
 2. Report reviewed by the owner against the paper checklist.
-3. Exe starts on a clean VM-EN from USB with Defender on; outcome with
-   SmartScreen / Smart App Control recorded (OQ 5, OQ 21).
+3. Exe starts on a clean VM-EN from a USB stick with Defender on; any
+   SmartScreen or Defender prompt recorded in the release notes.
 
 ---
 
@@ -228,12 +229,13 @@ Acceptance:
 | Id | Change | Source of decision | Verification |
 | --- | --- | --- | --- |
 | **S1** | `WO7-Setup.ps1`: add `Set-WindowsSettings` from `WO6-Setup.ps1` to PostInstall (UAC never notify, Remote Assistance off, visual effects best performance incl. `UserPreferencesMask` **[Uncertain]**, No Sounds, defrag schedule off, USB notifications off **[Uncertain]**, taskbar badges off). Then update the WO7 checklist: §8 items move to the §9 "applied by PostInstall" text. | OQ 14 | Parse-check + Pester; VM-EN run, values read back after reboot; same open items as WO6 (OQ 10) |
-| S2 | (Optional, pending OQ 2) result file `-ResultPath`, `ConvertTo-LgpoText` refactor | OQ 2 | Pester + transcript equivalence |
+| **S2** | Result file: optional `-ResultPath <file>` in both scripts (JSON: phase, options, warnings, backups, restore commands, audit items). `ConvertTo-LgpoText` refactor only if approved (OQ 2). | OQ 2 | Pester; normal-run transcript unchanged |
+| **S4** | Audit mode: `-Audit` switch in both scripts, read-only, `[SET]` / `[NOT SET]` (/ `[N/A]`, OQ 24) for every item the phase applies; desired values defined once, shared by apply and audit (A §6.4a). Do after S1 so WO7 includes the new settings. | OQ 10 | Pester for comparisons; VM-EN: audit on a fresh checkpoint = mostly Not Set, after PostInstall + reboot = all Set; end state of a normal run identical before/after S4 |
 | S3 | (Later) chosen WinUtil tweaks folded into the scripts; owner provides the list | OQ 4 | VM-EN, per tweak |
 
 ## After M5 (not scheduled)
 
-- **M6 Diagnostics** (OQ 9): soak-test recorder (nvidia-smi + logman), read-only.
+- **M6 Diagnostics** (OQ 9, deferred by the owner): soak-test recorder (nvidia-smi + logman), read-only.
 - **M7 Native port**: one script function at a time into C#, each with a
   parity test (same registry/policy/service end state on a VM checkpoint).
   Suggested order: read-only parts first (install-path detection), then

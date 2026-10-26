@@ -99,11 +99,7 @@ The guide's chapters 10–13 that PostInstall and WinUtil don't cover, adapted t
 - [ ] Network: `ncpa.cpl` → each show adapter → untick everything except IPv4 (10.10); keep Client for Microsoft Networks and File and Printer Sharing if you use network shares
 - [ ] Wake-on-LAN: enable it in the BIOS and set the NIC's "Wake on Magic Packet" advanced property to Enabled (10.11)
 
-### Registry (applied by PostInstall; listed to check after a reboot)
-
-- [ ] GPU timeouts for slow multi-output mode changes (12.2): `reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay /t REG_DWORD /d 15 /f` and `reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDdiDelay /t REG_DWORD /d 60 /f`
-- [ ] Multimedia CPU reserve (12.1): `reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness /t REG_DWORD /d 10 /f` (the guide says 5; Windows is reported to treat values under 10 as 10)
-- [ ] Production PC only (12.3): `reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 40 /f` (40 = hex 28, equal foreground and background time)
+The chapter 12 registry values (TdrDelay, TdrDdiDelay, SystemResponsiveness, Win32PrioritySeparation) are applied by PostInstall and checked in section 10.
 
 Skip from the guide: DirectShow ThreadPriority (WATCHOUT 6 DirectShow playback), ForcePcieLinkSpeed (2018 AMD GPU / X99 workaround), HideAutoLogonUI (Windows Embedded key, likely no effect on Pro), Win8DpiScaling and LogPixels (use Scale 100% instead).
 
@@ -137,6 +133,9 @@ Applies power plan, NIC power settings, network location, notifications, the Dat
 - [ ] `Get-MpComputerStatus | Select IsTamperProtected, RealTimeProtectionEnabled, BehaviorMonitorEnabled, OnAccessProtectionEnabled` → all False (Off mode)
 - [ ] `powercfg /getactivescheme` → "WATCHOUT 7"
 - [ ] `manage-bde -status C:` → Protection Off
+- [ ] GPU timeouts for slow multi-output mode changes (12.2): `reg query "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay` → 15 (0xf) and `/v TdrDdiDelay` → 60 (0x3c)
+- [ ] Multimedia CPU reserve (12.1): `reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness` → 10 (0xa) (the guide says 5; Windows is reported to treat values under 10 as 10)
+- [ ] Production PC only (12.3): `reg query "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation` → 40 (0x28, equal foreground and background time)
 - [ ] All nodes discover each other; asset transfer to the RAID0 works
 - [ ] Optional: secpol.msc → Network List Manager Policies → User cannot change location
 - [ ] Soak test: representative show for several hours on all outputs
