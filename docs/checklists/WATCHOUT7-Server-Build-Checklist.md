@@ -37,6 +37,7 @@ Keep the network cable unplugged until driver search is locked, or Windows Updat
 
 - [ ] Log in with the show (auto-logon) account
 - [ ] Elevated PowerShell: `.\WO7-Setup.ps1 -Phase PreUpdate`
+- [ ] Reboot (cable still unplugged)
 - [ ] Install the NIC driver from USB: `pnputil /add-driver <path>\*.inf /subdirs /install`
 - [ ] Check the adapter in Device Manager (no warning icon)
 - [ ] Plug in the network cable

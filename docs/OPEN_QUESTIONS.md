@@ -2,21 +2,409 @@
 
 Decide these with the owner before or during the first milestones.
 
-1. **Tech stack**: C# .NET 8 WPF single-file exe (proposed) vs PowerShell WPF + PS2EXE.
-2. **Engine**: keep running the two .ps1 scripts (embedded) first, port to C# later? (proposed: yes)
-3. **LGPO.exe**: bundle (check Microsoft licence terms), ask the user for its
-   path, or write Registry.pol natively?
-4. **WinUtil step**: launch WinUtil and show the tick list (needs internet:
-   `irm christitus.com/win | iex`), or re-implement the selected tweaks natively?
-5. **Code signing**: certificate available? Unsigned elevated exes trigger
-   SmartScreen and AV warnings.
-6. **Single exe for WO6 and WO7** with a profile choice at start (proposed), or two builds?
-7. **Machine profiles**: save/load an options profile (role, paths, switches)
-   per show/client to reuse on twin servers?
-8. **Report**: generate a per-machine HTML/PDF build report (what was applied,
-   warnings, versions) for the client file?
-9. **Diagnostics page**: include the HAP-stutter logging recipe (nvidia-smi +
-   logman) as a "record performance during soak test" tool?
-10. **Untested behaviour** to verify on hardware: UserPreferencesMask value,
-    NotifyOnUsbErrors, LGPO merge behaviour, WaaSMedic re-enabling wuauserv,
-    DisableAntiSpyware visibility in gpedit on 25H2.
+Each item keeps the original question, then a **Recommendation** (Oct 2026)
+and an **Owner decision** line to fill in. Items 11–22 are new: they came up
+while reading the scripts and checklists for `docs/ARCHITECTURE.md` and
+`docs/WIZARD_FLOW.md`. None of the recommendations is implemented; anything
+that deviates from the checklists or adds behaviour waits for the owner.
+
+| # | Topic | Blocks | Status |
+| --- | --- | --- | --- |
+| 1 | Tech stack / .NET version | M1 | Decided |
+| 2 | Engine: scripts as-is, result file | M2 | Open |
+| 3 | LGPO.exe | M2 | Open |
+| 4 | WinUtil step | M3 | Decided (tweak list for S3 pending) |
+| 5 | Code signing | M5 | Open |
+| 6 | Single exe | M1 | Open |
+| 7 | Machine profiles | M4 | Open |
+| 8 | Report | M5 | Open |
+| 9 | Diagnostics page | after M5 | Open |
+| 10 | Untested behaviour | M2–M5 (verification plan) | Open |
+| 11 | `-KeepService` array via `-File` | M2 | Open |
+| 12 | Reboot after PreUpdate? | M2 | Decided |
+| 13 | WO7 §8 registry checks after the reboot | M3 | Open |
+| 14 | WO7 §8 settings: manual or reuse WO6 automation | M3 | Decided (scope to confirm) |
+| 15 | Backups on re-run: restore from the first one | M2/M4 | Decided |
+| 16 | Proposed read-only checks (†) | M3 | Open |
+| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 | Open |
+| 18 | Show account must be a local administrator | M2 | Open |
+| 19 | WO7 install-path detection takes the first "WATCHOUT" entry | M2 | Open |
+| 20 | WO6: cable unplugged before WinUtil, which needs internet | M3 | Decided |
+| 21 | Smart App Control | M5 | Open |
+| 22 | Finish before or after imaging | M5 | Open |
+
+---
+
+## 1. Tech stack
+
+> C# .NET 8 WPF single-file exe (proposed) vs PowerShell WPF + PS2EXE.
+
+**Recommendation:** C# WPF single-file self-contained `win-x64`, as proposed,
+**but on .NET 10 (LTS) instead of .NET 8.**
+
+- .NET 8 (LTS) and .NET 9 reach end of support on **10 Nov 2026**, two weeks
+  from now; .NET 10 is LTS, supported until Nov 2028
+  ([Microsoft .NET blog, 29 Jun 2026](https://devblogs.microsoft.com/dotnet/dotnet-8-9-end-of-support/);
+  [InfoWorld](https://www.infoworld.com/article/4191704/end-of-support-looms-for-net-8-and-net-9.html)).
+  A self-contained .NET 8 exe would still run, but its bundled runtime would
+  never get another security fix. The exact .NET 10 end date is given as
+  Nov 2028 by Microsoft and as 14 Nov 2028 by a third party
+  **[Conflicting sources on the exact day]** — check the Microsoft lifecycle
+  page; it does not change the decision.
+- PS2EXE: keep rejected. It wraps a script in a small host exe, which AV
+  engines often flag (AGENTS.md), and it would not remove the PowerShell 5.1
+  limits for the UI.
+- WPF does not support trimming, so the exe will be large (tens of MB)
+  **[Uncertain exact size until the first build]**. Not an issue on a USB stick.
+
+**Owner decision (Oct 2026):** **.NET 10 LTS.** AGENTS.md updated.
+
+## 2. Engine
+
+> Keep running the two .ps1 scripts (embedded) first, port to C# later? (proposed: yes)
+
+**Recommendation:** yes. Run the scripts **unchanged** through a small
+wrapper (`Invoke-WOEngine.ps1`, ARCHITECTURE §6.3) that only handles
+argument binding, UTF-8 output and exit codes. Port to C# after M5, one
+function at a time, with parity tests on a VM (MILESTONES "M7").
+
+Two optional, behaviour-neutral script changes would make the wizard more
+robust. Neither is a tweak; both need your OK because they touch the scripts:
+
+1. **Result file:** an optional `-ResultPath <file>` parameter; at the end
+   the script writes `{ phase, warnings[], backups[], restoreCommands[] }` as
+   JSON. Without it, the wizard parses the `[OK]`/`[WARN]` text (works, but
+   any wording change in a script can break parsing).
+2. **Testability:** move the LGPO text rendering out of `Invoke-PolicyApply`
+   into its own function (e.g. `ConvertTo-LgpoText`), so Pester can test it
+   without calling LGPO.exe. AGENTS.md asks for that test; today it can only
+   be done by running the whole function.
+
+**Owner decision:** _scripts as-is? result file yes/no? refactor yes/no?_
+
+## 3. LGPO.exe
+
+> Bundle (check Microsoft licence terms), ask the user for its path, or write Registry.pol natively?
+
+**Recommendation:** **do not bundle; ask for it and verify it.** Native
+Registry.pol later, if at all.
+
+- The licence is in "Microsoft Security Compliance Toolkit – Standalone Use
+  Terms.pdf" inside the LGPO download (per a Microsoft answer on
+  [Microsoft Tech Community](https://techcommunity.microsoft.com/discussions/security-baselines/welcome/690634)).
+  I have **not** read that PDF, so redistribution rights are
+  **[Uncertain]**. A Microsoft engineer said of a related tool
+  (Apply_LGPO_Delta) that it should not be redistributed outside your
+  organisation ([Microsoft archived blog](https://learn.microsoft.com/en-us/archive/blogs/fdcc/sample-files-for-apply_lgpo_delta)) —
+  that comment is about a different tool and predates LGPO.exe, so it only
+  suggests the direction. To resolve: read the PDF in your copy of LGPO.zip.
+- Wizard behaviour (ARCHITECTURE §6.5): look for `LGPO.exe` next to the
+  wizard and on removable drives, or browse; check the Microsoft Authenticode
+  signature; copy into `%ProgramData%\WOSetupWizard\tools`. Continuing without
+  it needs explicit confirmation, with the script's fallback limits spelled out.
+- Native Registry.pol: the PReg file format is documented, but LGPO also
+  updates `gpt.ini` (version, extension GUIDs) so Windows applies and gpedit
+  shows the policies. Re-implementing that correctly is real work and needs
+  VM verification; worth it only if the licence rules out asking operators
+  to download LGPO themselves.
+
+**Owner decision:** _ask-and-verify OK?_
+
+## 4. WinUtil step
+
+> Launch WinUtil and show the tick list (needs internet: `irm christitus.com/win | iex`), or re-implement the selected tweaks natively?
+
+**Recommendation:** **do not re-implement.** Manual step with the exact tick
+list from the checklist, plus an optional **"Launch WinUtil (internet
+required)"** button that opens a visible elevated PowerShell window running
+the official command, clearly labelled as online.
+
+- Re-implementing would duplicate a third-party tool's tweaks in this
+  project (effectively "adding tweaks"), and they would drift as WinUtil
+  changes.
+- WinUtil can load an exported config: `-Config "<file>.json"` and, per its
+  user guide, `-Run` to apply without clicking
+  ([WinUtil automation guide](https://winutil.christitus.com/userguide/automation)).
+  The two official pages differ on whether `-Run` is required, and the launch
+  still downloads the script **[Uncertain: no documented fully offline mode]**.
+  Option for later: you export your tick list once from WinUtil, the wizard
+  ships that JSON and passes it to the launch command. The config format can
+  change between WinUtil versions, so it must be re-checked per WinUtil
+  release.
+- The wizard records the WinUtil version/date typed by the operator in the report.
+- See item 20 for the WO6 offline conflict.
+
+**Owner decision (Oct 2026):** **Manual tick list; WinUtil started either online (cable plugged in briefly) or from a local offline copy of the WinUtil script.** Later, a chosen subset of WinUtil tweaks may be integrated into the scripts — owner to pick the list (MILESTONES S3). Shipping an exported config: not decided.
+
+## 5. Code signing
+
+> Certificate available? Unsigned elevated exes trigger SmartScreen and AV warnings.
+
+**Recommendation:** ship M1–M4 **unsigned for your own use** (with a SHA-256
+file per release); decide on a certificate before giving the exe to anyone else.
+
+- SmartScreen checks files that carry the Mark of the Web (downloaded
+  files). An exe copied from a FAT32/exFAT USB stick loses that mark, so
+  SmartScreen usually does not prompt **[Uncertain: confirm on VM in M5]**.
+  Defender AV still scans it (and Defender is turned off only at PostInstall).
+  Smart App Control is a separate risk: item 21.
+- Options, if you need one:
+  - **Azure Artifact Signing** (formerly Trusted Signing): about US$9.99/month
+    (Basic). Open to **individuals only in the USA and Canada**; to
+    organisations also in the EU and UK
+    ([Microsoft Learn – code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options);
+    [Azure pricing](https://azure.microsoft.com/en-us/products/artifact-signing)).
+    Whether a sole trader (e.g. Italian *ditta individuale*) qualifies as an
+    organisation is **[Uncertain]**; check the eligibility FAQ.
+  - **OV certificate** from a public CA, on a hardware token or cloud HSM.
+  - **EV** no longer gives instant SmartScreen reputation; EV and OV now
+    build reputation the same way
+    ([ToDesktop, PSA on EV certs](https://www.todesktop.com/blog/posts/windows-apps-psa-ev-certs-do-not-grant-immediate-reputation-anymore)).
+    The effective date is reported as March 2024 by SSL.com and August 2024
+    elsewhere **[Conflicting sources]**; it does not change the advice: EV is
+    not worth the premium for this.
+
+**Owner decision:** _which applies to you: individual or organisation? unsigned for now?_
+
+## 6. Single exe
+
+> Single exe for WO6 and WO7 with a profile choice at start (proposed), or two builds?
+
+**Recommendation:** **single exe**, profile chosen at start (W-00.1) and
+**locked after the first automated step** (PreUpdate). Both flows share 90 %
+of the code; the flow files differ. Changing the profile afterwards means
+"Start over" (state archived, not deleted).
+
+**Owner decision:**
+
+## 7. Machine profiles
+
+> Save/load an options profile (role, paths, switches) per show/client to reuse on twin servers?
+
+**Recommendation:** **yes, in M4.** A small JSON with profile, role and
+script options only — no machine state, no machine name, no secrets.
+Import shows a diff against the current options and warns on paths that do
+not exist on this machine (e.g. `E:\Shows`). It never skips steps: a twin
+still goes through the whole flow.
+
+**Owner decision:**
+
+## 8. Report
+
+> Generate a per-machine HTML/PDF build report (what was applied, warnings, versions) for the client file?
+
+**Recommendation:** **yes, HTML in M5**, one self-contained file (no external
+files or scripts), printable to PDF from any browser. Content: MILESTONES M5.
+A direct PDF export would need either a PDF library or WebView2; not worth it
+for v1. Note: "Microsoft Print to PDF" may be missing on a MicroWin build
+**[Uncertain]** — print from the workstation that receives the report instead.
+
+**Owner decision:**
+
+## 9. Diagnostics page
+
+> Include the HAP-stutter logging recipe (nvidia-smi + logman) as a "record performance during soak test" tool?
+
+**Recommendation:** **yes, but after M5** (M6). It is a read-only recorder,
+not a tweak: start/stop buttons that run the PROJECT_CONTEXT §9 recipe
+(`nvidia-smi --query-gpu=... -l 1 -f gpu.csv`, a `logman` counter set),
+write into the machine log folder, show free disk space, and never start
+during a show unless the operator presses Start. The exact `nvidia-smi`
+query fields and `logman` counters need your field list (the context file
+abbreviates them). Because the twin-server stutter is unresolved, this is
+the most useful post-v1 feature.
+
+**Owner decision:** _send the exact field/counter list you used_
+
+## 10. Untested behaviour
+
+> Verify on hardware: UserPreferencesMask value, NotifyOnUsbErrors, LGPO merge behaviour, WaaSMedic re-enabling wuauserv, DisableAntiSpyware visibility in gpedit on 25H2.
+
+**Recommendation:** verification plan; each item stays **[Uncertain]** in
+the UI until done. The wizard's own checks help collect the evidence.
+
+| Item | How to verify (VM-EN unless noted) | Wizard support |
+| --- | --- | --- |
+| `UserPreferencesMask 90 12 03 80 10 00 00 00` (WO6) | After PostInstall + reboot, open Performance Options: every effect unticked? Compare the binary value with what the dialog writes when you click "Adjust for best performance" by hand on a clean checkpoint. | WO6-09.6 |
+| `NotifyOnUsbErrors` (WO6) | After reboot, Settings → Bluetooth & devices → USB: toggle shown Off? Then toggle it by hand on a clean checkpoint and see which value changes (Process Monitor). | WO6-09.7, WO7-08.6 |
+| LGPO `/t` merge | On a checkpoint, set an unrelated policy in gpedit, run PostInstall, check it is still set (`LGPO.exe /parse /m C:\Windows\System32\GroupPolicy\Machine\Registry.pol`). | Backup always taken first |
+| WaaSMedicSvc re-enabling `wuauserv` | After PostInstall: reboot, wait 24 h idle with network, reboot again; check `Get-Service wuauserv` start type each time. | WO7-10.3a, WO6-10.5a |
+| `DisableAntiSpyware` not in gpedit on 25H2 | `LGPO.exe /parse` shows whether the value is in Registry.pol. If it is, the cause is the ADMX (gpedit only shows settings defined in the installed templates) **[Uncertain]**; if not, LGPO rejected or skipped it. | Verify page |
+
+Plus the hardware-only items: AMD `rccfg` carried into the OS (WO7-04.2),
+RAIDXpert2 array naming in `Get-Disk`, Broadcom 9361/IT-mode drivers.
+
+**Owner decision:**
+
+---
+
+## 11. `-KeepService` and other options through `powershell.exe -File` (new)
+
+**Finding:** WO6 `-KeepService` is `[string[]]`. Typed in an elevated
+prompt (`.\WO6-Setup.ps1 -KeepService TermService,SessionEnv,UmRdpService`),
+PowerShell builds an array. Passed via `powershell.exe -File … -KeepService
+TermService,SessionEnv,UmRdpService`, it arrives as **one string**, so
+`$KeepService -contains 'TermService'` is false and the RDP services would be
+disabled. **Not a script bug**: the checklist usage is correct. It matters
+only for how the wizard calls the script.
+
+**Recommendation:** the wizard never passes options on the command line; the
+wrapper reads JSON and splats (ARCHITECTURE §6.3). Covered by an M2
+acceptance test.
+
+**Owner decision:** _OK with the wrapper?_
+
+## 12. Reboot after PreUpdate? (new)
+
+**Finding:** both scripts end with "Completed with no warnings. **Reboot
+now.**" for **both** phases. The checklists put no reboot after PreUpdate
+(next item: install the NIC driver). `SearchOrderConfig` and the policies
+are applied by `gpupdate /force`, so a reboot does not look necessary.
+
+**Recommendation:** follow the checklist (no reboot), show the script's line
+as-is, and add a one-line note in the wizard. Optional script fix: print
+"Reboot now" only after PostInstall.
+
+**Owner decision (Oct 2026):** **The scripts are right: reboot after PreUpdate.** Both checklists now have a "Reboot (cable still unplugged)" line after PreUpdate; WIZARD_FLOW has reboot point R0b.
+
+## 13. WO7 §8 registry checks: when to run them (new)
+
+**Finding:** the WO7 checklist lists the `TdrDelay`/`TdrDdiDelay`/
+`SystemResponsiveness`/`Win32PrioritySeparation` items in §8 (before
+PostInstall in §9) but says they are "applied by PostInstall; listed to check
+after a reboot".
+
+**Recommendation:** keep them in §8 in the left rail, but the wizard runs
+them only after the PostInstall reboot (they appear as pending checks in §10
+until then). No `reg add` is ever run by the wizard. This is a display
+choice, not a change of order.
+
+**Owner decision:**
+
+## 14. WO7 §8 settings: manual, or reuse the WO6 automation? (new)
+
+**Finding:** for WO7 the checklist makes UAC never notify, Remote Assistance
+off, No Sounds, defrag schedule off, USB notifications off and taskbar
+badges off **manual**. `WO6-Setup.ps1` already automates the same items
+(`Set-WindowsSettings`).
+
+**Recommendation:** **keep them manual for WO7** (checklist is the source of
+truth), with read-only checks (†). If you want them automated for WO7, that
+is a change to `WO7-Setup.ps1` and to the WO7 checklist, done first in the
+script and verified on a VM, not in the wizard.
+
+**Owner decision (Oct 2026):** **Automate them in WO7-Setup.ps1 like WO6-Setup.ps1** (MILESTONES S1, separate PR). Assumed scope: the whole `Set-WindowsSettings` function, i.e. visual effects too (WO7 checklist 10.3 says "skip if ticked in WinUtil"; applying both is harmless). Indexing (10.15) stays manual for WO7: WO6 covers it by disabling the Windows Search service, which is part of the ch. 11 service list, not of `Set-WindowsSettings`. **Confirm this scope.**
+
+## 15. Backups when a phase is re-run (new)
+
+**Finding:** every run writes new backups (`LGPO_Backup_<stamp>`,
+`Services_Backup_<stamp>.csv`, `UpdateServices_Backup_<stamp>.csv`). On a
+**re-run**, the services are already `Disabled`, so the new CSV records
+"Disabled"; restoring from it restores nothing. Same for the Local GPO
+backup, which then contains the already-applied policies.
+
+**Recommendation:** the wizard marks the **first** backup of each kind as
+**baseline**, keeps all of them, and restore actions use the baseline.
+Later backups stay in their run folders (and the support bundle) for
+reference only; their printed restore lines are not offered as actions.
+
+**Owner decision (Oct 2026):** **Always use the first (baseline) backup.**
+
+## 16. Proposed read-only checks (new)
+
+**Finding:** `docs/WIZARD_FLOW.md` marks with **†** checks that are not
+written in the checklists (e.g. "no physical adapter Up before PreUpdate",
+`SearchOrderConfig` read-back, NVIDIA version compare, auto-logon registry
+values, display DPI = 96, indexing off per volume, CodeMeter service running,
+no WATCHPOINT Startup shortcut). All are reads; none changes the machine.
+
+**Recommendation:** approve them as a group, or strike the ones you do not
+want. Without approval those steps remain plain manual steps.
+
+**Owner decision:** _approve all / list exceptions_
+
+## 17. Wizard vs WATCHPOINT after reboot (WO6) (new)
+
+**Finding:** after WO6 PostInstall, WATCHPOINT starts at logon (8 s delay)
+and goes full screen; the wizard's resume task also starts at logon, so one
+covers the other. WO6-10.1 needs WATCHPOINT to start *undisturbed*, because
+the point is to see that nothing steals focus.
+
+**Recommendation:** after PostInstall (WO6 Display), the resume task starts
+the wizard **minimised to the taskbar** with a 60 s delay, and does not take
+focus. The operator brings it up with Alt+Tab when ready. The verification
+step asks "Did WATCHPOINT start full screen on its own?" and then reads the
+task result (WO6-10.2).
+
+**Owner decision:**
+
+## 18. Show account must be a local administrator (new)
+
+**Finding:** both checklists say "Elevated, from the show account", and the
+scripts write HKCU values and (WO6) register the WATCHPOINT task for
+`$env:USERNAME`. If the show account were a standard user and someone
+elevated with another admin account, those settings would land in the wrong
+profile.
+
+**Recommendation:** the wizard requires the elevated user to be the
+interactive (show) user and blocks otherwise (ARCHITECTURE §10). This implies
+the show account is a local administrator, which also matches the WO6
+"highest privileges" WATCHPOINT task. Confirm this is always the case on your
+builds.
+
+**Owner decision:**
+
+## 19. WO7 install-path detection takes the first "WATCHOUT" entry (new)
+
+**Finding:** `WO7-Setup.ps1` `Get-WatchoutInstallPath` returns the first
+Uninstall entry whose `DisplayName` matches `WATCHOUT` and has an
+`InstallLocation`. On a machine with WATCHOUT 6 leftovers or a companion
+product, it could pick the wrong folder for the Defender exclusions. (The WO6
+version is stricter: it requires `WATCHPOINT.exe`/`WATCHMAKER.exe` in the
+folder.)
+
+**Recommendation:** the wizard shows all matching entries at WO7-07.1 and
+passes `-WatchoutPath` explicitly when more than one exists. Optional script
+fix later: prefer an entry with "7" in the name or a known WATCHOUT 7
+executable — that needs the exact WATCHOUT 7 file names from you.
+
+**Owner decision:**
+
+## 20. WO6: cable unplugged before WinUtil (new)
+
+**Finding:** WO6 checklist §4 ends with "Unplug the network cable again if
+the machine will stay offline", but §6 WinUtil is launched with
+`irm christitus.com/win | iex`, which needs internet.
+
+**Recommendation:** in the wizard, move nothing; at WO6-06.x show "WinUtil
+needs internet: plug the cable in for this step, unplug it afterwards" when
+the adapter is down. Alternatively, swap the order in the WO6 checklist (unplug
+after WinUtil). Either way it is your call, since it changes the checklist
+wording or order.
+
+**Owner decision (Oct 2026):** **Re-plug the cable briefly for an online WinUtil launch, or use an offline copy of the WinUtil script** (same as item 4). Checklist order unchanged.
+
+## 21. Smart App Control (new)
+
+**Finding:** on clean Windows 11 installs Smart App Control can start in
+evaluation mode and, once on, blocks unsigned apps it does not know
+**[Uncertain whether MicroWin builds keep it, and how it treats this exe]**.
+
+**Recommendation:** the pre-flight shows `Get-MpComputerStatus`
+`SmartAppControlState` (read-only). Test on VM-EN in M5 with an unsigned
+build; if SAC blocks it, that is a strong argument for signing (item 5).
+
+**Owner decision:**
+
+## 22. Finish before or after imaging (new)
+
+**Finding:** the last checklist step is "Image the system disk". If the
+wizard is still installed at that point, the image (and every clone) carries
+the resume task and the wizard's state.
+
+**Recommendation:** place **Finish** (remove the resume task and
+`bin\WOSetupWizard.exe`, keep logs and report) **just before** the imaging
+step, and show the imaging step as the last manual item after Finish. This
+moves the wizard's own step, not a checklist item.
+
+**Owner decision:**
