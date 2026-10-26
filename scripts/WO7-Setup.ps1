@@ -131,6 +131,12 @@
     WATCHOUT working directory (cached assets/shows). Dataton default: a ".wo"
     folder next to the installation.
 
+.PARAMETER ResultPath
+    Optional. File to write a JSON summary of the run to (phase, effective
+    options, status, warnings, backups with restore commands, LGPO use,
+    transcript path). Used by the setup wizard instead of parsing the console
+    text. Writing it never changes what the run does.
+
 .EXAMPLE
     .\WO7-Setup.ps1 -Phase PreUpdate
 .EXAMPLE
@@ -158,7 +164,9 @@ param(
     [switch]$KeepUpdateService,
 
     [string]$WatchoutPath,
-    [string]$WorkingDirectory
+    [string]$WorkingDirectory,
+
+    [string]$ResultPath
 )
 
 Set-StrictMode -Version Latest
@@ -166,13 +174,72 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = $PSScriptRoot
 $Stamp     = Get-Date -Format 'yyyyMMdd_HHmmss'
-Start-Transcript -Path (Join-Path $ScriptDir "WO7-Setup_${Phase}_$Stamp.log") | Out-Null
+$script:TranscriptPath = Join-Path $ScriptDir "WO7-Setup_${Phase}_$Stamp.log"
+Start-Transcript -Path $script:TranscriptPath | Out-Null
 
 # Warnings are collected so the final summary shows what needs attention.
 $script:Warnings = New-Object System.Collections.Generic.List[string]
 function Write-Step([string]$msg) { Write-Host "`n=== $msg" -ForegroundColor Cyan }
 function Write-Ok  ([string]$msg) { Write-Host "  [OK]   $msg" -ForegroundColor Green }
 function Write-Warn([string]$msg) { Write-Host "  [WARN] $msg" -ForegroundColor Yellow; $script:Warnings.Add($msg) }
+
+# ---------------------------------------------------------------------------
+# Run record for the optional -ResultPath file. Backups and restore commands
+# are recorded where they are produced; nothing here changes the machine.
+# ---------------------------------------------------------------------------
+$script:Backups      = New-Object System.Collections.Generic.List[object]
+$script:LgpoUsed     = $false
+$script:LgpoTextFile = $null
+$script:Fatal        = $null
+$script:RunStarted   = Get-Date
+
+function Add-BackupRecord([string]$Kind, [string]$Path, [string]$Restore) {
+    $script:Backups.Add([pscustomobject]@{ Kind = $Kind; Path = $Path; Restore = $Restore })
+}
+
+function Get-RunParameters {
+    # Effective values, defaults included; switches as true/false.
+    [ordered]@{
+        Phase             = $Phase
+        Role              = $Role
+        DefenderMode      = $DefenderMode
+        KeepFirewall      = [bool]$KeepFirewall
+        PinVersion        = $PinVersion
+        KeepUpdateService = [bool]$KeepUpdateService
+        WatchoutPath      = $WatchoutPath
+        WorkingDirectory  = $WorkingDirectory
+    }
+}
+
+function Write-ResultFile([string]$Status) {
+    # Only with -ResultPath. A failure here prints a line and is otherwise
+    # ignored: the result file must never change the outcome of the run.
+    if (-not $ResultPath) { return }
+    try {
+        $out = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ResultPath)
+        $result = [ordered]@{
+            schemaVersion = 1
+            script        = 'WO7-Setup.ps1'
+            phase         = $Phase
+            status        = $Status
+            fatal         = $script:Fatal
+            startedAt     = $script:RunStarted.ToString('o')
+            endedAt       = (Get-Date).ToString('o')
+            computerName  = $env:COMPUTERNAME
+            userName      = "$env:USERDOMAIN\$env:USERNAME"
+            parameters    = Get-RunParameters
+            warnings      = @($script:Warnings)
+            backups       = @($script:Backups)
+            lgpo          = [ordered]@{ used = $script:LgpoUsed; textFile = $script:LgpoTextFile }
+            transcript    = $script:TranscriptPath
+        }
+        $json = ConvertTo-Json -InputObject $result -Depth 5
+        # UTF-8 without BOM.
+        [IO.File]::WriteAllText($out, $json, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "  [i]    Result file: $out" -ForegroundColor DarkGray
+    }
+    catch { Write-Host "  [WARN] Result file not written: $($_.Exception.Message)" -ForegroundColor Yellow }
+}
 
 # ---------------------------------------------------------------------------
 # Policy collector. Every policy is queued with Add-Policy and applied once
@@ -203,6 +270,25 @@ function Set-RegDword {
     New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType DWord -Force | Out-Null
 }
 
+function ConvertTo-LgpoText {
+    # Renders queued policies in LGPO.exe text format: comment / Scope / Key /
+    # Value name / DWORD:<decimal> or SZ:<string>, Computer entries first,
+    # then User, for a readable text file. Pure: no file, registry or LGPO.exe
+    # access, so it can be unit-tested (Pester) on any machine.
+    param([object[]]$Policies)
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($p in ($Policies | Sort-Object { $_.Scope -ne 'Computer' })) {
+        [void]$sb.AppendLine("; $($p.Comment)")
+        [void]$sb.AppendLine($p.Scope)
+        [void]$sb.AppendLine($p.Key)
+        [void]$sb.AppendLine($p.Name)
+        # LGPO text format: DWORD:<decimal> or SZ:<string>
+        [void]$sb.AppendLine("$($p.Type):$($p.Value)")
+        [void]$sb.AppendLine()
+    }
+    return $sb.ToString()
+}
+
 function Invoke-PolicyApply {
     if ($script:Policies.Count -eq 0) { return }
     Write-Step "Applying $($script:Policies.Count) policy settings"
@@ -215,21 +301,16 @@ function Invoke-PolicyApply {
         & $lgpo /b $backup | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "LGPO backup failed (exit $LASTEXITCODE)." }
         Write-Ok "Local GPO backed up to $backup"
+        # LGPO /b writes the backup into a {GUID} subfolder; /g needs that path.
+        $guidDir = @(Get-ChildItem -Path $backup -Directory -ErrorAction SilentlyContinue) | Select-Object -First 1
+        $restoreDir = if ($guidDir) { $guidDir.FullName } else { "$backup\{GUID}" }
+        Add-BackupRecord -Kind 'LgpoBackup' -Path $backup -Restore "LGPO.exe /g `"$restoreDir`""
 
-        # 2. Render LGPO text format: Scope / Key / Value name / DWORD:n
-        #    Computer entries first, then User, for a readable text file.
-        $sb = New-Object System.Text.StringBuilder
-        foreach ($p in ($script:Policies | Sort-Object { $_.Scope -ne 'Computer' })) {
-            [void]$sb.AppendLine("; $($p.Comment)")
-            [void]$sb.AppendLine($p.Scope)
-            [void]$sb.AppendLine($p.Key)
-            [void]$sb.AppendLine($p.Name)
-            # LGPO text format: DWORD:<decimal> or SZ:<string>
-            [void]$sb.AppendLine("$($p.Type):$($p.Value)")
-            [void]$sb.AppendLine()
-        }
+        # 2. Render LGPO text format (see ConvertTo-LgpoText).
         $txt = Join-Path $ScriptDir "lgpo_$Phase.txt"
-        Set-Content -Path $txt -Value $sb.ToString() -Encoding ASCII
+        Set-Content -Path $txt -Value (ConvertTo-LgpoText -Policies $script:Policies) -Encoding ASCII
+        $script:LgpoUsed     = $true
+        $script:LgpoTextFile = $txt
 
         # 3. Import into the Local GPO.
         #    [Uncertain] LGPO /t is expected to merge with existing settings;
@@ -567,6 +648,7 @@ function Set-UpdateFreeze {
     Get-CimInstance Win32_Service | Where-Object { $names -contains $_.Name } | ForEach-Object {
         [pscustomobject]@{ Name = $_.Name; StartType = $(if ($_.StartMode -eq 'Auto') { 'Automatic' } else { $_.StartMode }) }
     } | Export-Csv -Path $backup -NoTypeInformation
+    Add-BackupRecord -Kind 'UpdateServicesCsv' -Path $backup -Restore "Import-Csv '$backup' | ForEach-Object { Set-Service `$_.Name -StartupType `$_.StartType }"
     foreach ($n in $names) {
         try {
             Stop-Service -Name $n -Force -ErrorAction SilentlyContinue
@@ -738,6 +820,7 @@ function Set-SearchIndexing {
     $backup = Join-Path $ScriptDir "SearchService_Backup_$Stamp.csv"
     [pscustomobject]@{ Name = $svc.Name; StartType = $(if ($svc.StartMode -eq 'Auto') { 'Automatic' } else { $svc.StartMode }) } |
         Export-Csv -Path $backup -NoTypeInformation
+    Add-BackupRecord -Kind 'SearchServiceCsv' -Path $backup -Restore "Import-Csv '$backup' | ForEach-Object { Set-Service `$_.Name -StartupType `$_.StartType }"
 
     if ($svc.StartMode -eq 'Disabled') {
         Write-Ok 'WSearch already disabled'
@@ -862,6 +945,12 @@ try {
         Write-Host '  After the reboot: Performance Options shows "Adjust for best performance"; Scale = 100 % on every output.' -ForegroundColor DarkGray
     }
 }
+catch {
+    # Recorded for the result file, then re-thrown: the run fails exactly as before.
+    $script:Fatal = $_.Exception.Message
+    throw
+}
 finally {
+    Write-ResultFile -Status $(if ($script:Fatal) { 'Failed' } else { 'Completed' })
     Stop-Transcript | Out-Null
 }
