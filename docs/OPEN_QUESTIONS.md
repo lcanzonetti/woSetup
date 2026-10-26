@@ -11,7 +11,7 @@ that deviates from the checklists or adds behaviour waits for the owner.
 | # | Topic | Blocks | Status |
 | --- | --- | --- | --- |
 | 1 | Tech stack / .NET version | M1 | Decided |
-| 2 | Engine: scripts as-is, result file | M2 | Decided (refactor: awaiting answer) |
+| 2 | Engine: scripts as-is, result file | M2 | Decided |
 | 3 | LGPO.exe | M2 | Decided |
 | 4 | WinUtil step | M3 | Decided (tweak list for S3 pending) |
 | 5 | Code signing | M5 | Decided |
@@ -82,7 +82,7 @@ robust. Neither is a tweak; both need your OK because they touch the scripts:
    without calling LGPO.exe. AGENTS.md asks for that test; today it can only
    be done by running the whole function.
 
-**Owner decision (Oct 2026):** **Scripts as-is; result file yes** (MILESTONES S2). Testability refactor: explained below, **awaiting answer**.
+**Owner decision (Oct 2026):** **Scripts as-is; result file yes** (MILESTONES S2). **Testability refactor: yes** (LGPO text rendering moved into its own function, no behaviour change; MILESTONES S2).
 
 *What "testability" means:* AGENTS.md asks for automated (Pester) tests of the LGPO text rendering, i.e. that the queued policies turn into exactly the right `Computer / Key / Name / DWORD:n` lines. Today that code sits inside `Invoke-PolicyApply`, which in the same breath backs up the Local GPO, calls `LGPO.exe` and runs `gpupdate /force`, so it can only be tested by changing a real machine. Moving the dozen rendering lines into their own function (e.g. `ConvertTo-LgpoText`, called from the same place) changes no behaviour and lets CI check the text file on every commit, on any machine. Without it, that test is dropped and rendering is only checked on the VM.
 
@@ -299,7 +299,7 @@ script and verified on a VM, not in the wizard.
 
 **Owner decision (Oct 2026):** **Automate them in WO7-Setup.ps1 like WO6-Setup.ps1** (MILESTONES S1, separate PR). Assumed scope: the whole `Set-WindowsSettings` function, i.e. visual effects too (WO7 checklist 10.3 says "skip if ticked in WinUtil"; applying both is harmless). Indexing (10.15) stays manual for WO7: WO6 covers it by disabling the Windows Search service, which is part of the ch. 11 service list, not of `Set-WindowsSettings`. **Confirm this scope.**
 
-**Scope confirmed (Oct 2026):** port the whole `Set-WindowsSettings` function from WO6, visual effects included.
+**Scope confirmed (Oct 2026, re-confirmed):** port the whole `Set-WindowsSettings` function from WO6 (UAC, Remote Assistance, visual effects, No Sounds, defrag schedule, USB notifications, taskbar badges).
 
 ## 15. Backups when a phase is re-run (new)
 
