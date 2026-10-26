@@ -25,10 +25,11 @@ those stay "not verified" until HW runs.
 
 ## M1 — Skeleton, state, resume
 
-**Goal:** a wizard that shows both flows, remembers where it is and comes back
-by itself after a reboot. No engine runs yet.
+**Goal:** a portable wizard that shows both flows, remembers where it is,
+and reopens on the right step when started again from the USB stick after a
+reboot. No engine runs yet.
 
-Decided: .NET 10 LTS (OQ 1), single exe with profile choice (OQ 6). Blocked by: **OQ 23** (portable vs local copy for resume).
+Decided: .NET 10 LTS (OQ 1), single exe with profile choice (OQ 6). Portable, manual relaunch after reboot (OQ 23). No blockers.
 
 Scope:
 - Solution layout (A §3); `app.manifest` (A §9); single-file publish profile.
@@ -38,29 +39,30 @@ Scope:
 - Shell UI: left rail by checklist section, right pane per step kind,
   status icons, profile + role selection (W-00.1).
 - `WizardState` + `JsonStateStore` with atomic write and `.bak` fallback (A §5).
-- `SelfInstaller` (copy to `%ProgramData%\WOSetupWizard\bin`, folder ACL),
-  `ResumeTaskManager` (`\WOSetupWizard\Resume`), single-instance mutex (A §7).
+- Resume from `state.json` on every start, schema version check,
+  single-instance mutex (A §7). No local copy, no scheduled task.
 - `RebootManager`: pending reboot record, "Reboot now", confirmation via
   `LastBootUpTime` (A §7.3).
-- `wizard.log` (A §8). Finish removes the resume task.
+- `wizard.log` (A §8). Finish marks the build complete.
 - CI: build, xUnit, parse-check of `scripts/*.ps1` with
   `[System.Management.Automation.Language.Parser]::ParseFile` under `powershell.exe`.
 
 Acceptance (VM-EN):
-1. Started from a USB stick (FAT32 or NTFS), elevated prompt once, wizard
-   installs itself and shows WO7 or WO6 flow.
-2. Mark several manual steps done, reboot from the wizard → after logon the
-   wizard reopens **without a UAC prompt** at the same step, reboot confirmed.
+1. Started from a USB stick (FAT32 or NTFS), UAC prompt, wizard shows the
+   WO7 or WO6 flow. Nothing is copied outside `%ProgramData%\WOSetupWizard`.
+2. Mark several manual steps done, reboot from the wizard, start the exe from
+   the stick again (also with a different drive letter) → it opens on the same
+   step, reboot confirmed.
 3. "Reboot later" + manual restart → also confirmed. No restart → step stays
    "Awaiting reboot".
 4. Kill power (VM hard reset) during a state write loop → state loads (or
    falls back to `.bak` with a warning).
-5. Standard user cannot write into `%ProgramData%\WOSetupWizard\bin`.
-6. Finish → task gone (`Get-ScheduledTask -TaskPath '\WOSetupWizard\'` empty).
+5. An older exe refuses a newer `state.json` with a clear message.
+6. Nothing starts at logon (`Get-ScheduledTask -TaskPath '\WOSetupWizard\'` empty).
 
 Tests: state round-trip and migration; atomic write; navigator gating;
 flow validator (ids unique, section order equals checklist, every check id
-known); task XML generation (Windows test).
+known); schema version check.
 
 ---
 
@@ -230,7 +232,7 @@ Acceptance:
 | --- | --- | --- | --- |
 | **S1** | `WO7-Setup.ps1`: add `Set-WindowsSettings` from `WO6-Setup.ps1` to PostInstall (UAC never notify, Remote Assistance off, visual effects best performance incl. `UserPreferencesMask` **[Uncertain]**, No Sounds, defrag schedule off, USB notifications off **[Uncertain]**, taskbar badges off). Then update the WO7 checklist: §8 items move to the §9 "applied by PostInstall" text. | OQ 14 | Parse-check + Pester; VM-EN run, values read back after reboot; same open items as WO6 (OQ 10) |
 | **S2** | Result file: optional `-ResultPath <file>` in both scripts (JSON: phase, options, warnings, backups, restore commands, audit items). `ConvertTo-LgpoText` refactor only if approved (OQ 2). | OQ 2 | Pester; normal-run transcript unchanged |
-| **S4** | Audit mode: `-Audit` switch in both scripts, read-only, `[SET]` / `[NOT SET]` (/ `[N/A]`, OQ 24) for every item the phase applies; desired values defined once, shared by apply and audit (A §6.4a). Do after S1 so WO7 includes the new settings. | OQ 10 | Pester for comparisons; VM-EN: audit on a fresh checkpoint = mostly Not Set, after PostInstall + reboot = all Set; end state of a normal run identical before/after S4 |
+| **S4** | Audit mode: `-Audit` switch in both scripts, read-only, `[SET]` / `[NOT SET]` / `[N/A]` (OQ 24) for every item the phase applies; desired values defined once, shared by apply and audit (A §6.4a). Do after S1 so WO7 includes the new settings. | OQ 10 | Pester for comparisons; VM-EN: audit on a fresh checkpoint = mostly Not Set, after PostInstall + reboot = all Set; end state of a normal run identical before/after S4 |
 | S3 | (Later) chosen WinUtil tweaks folded into the scripts; owner provides the list | OQ 4 | VM-EN, per tweak |
 
 ## After M5 (not scheduled)

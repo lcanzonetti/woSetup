@@ -16,7 +16,7 @@ Order and content follow the checklists exactly:
 | **M+C** | Manual step with a check attached. |
 | **†** | **Check not written in the checklist.** Read-only, changes nothing. All approved by the owner (Oct 2026, OQ 16); the owner may strike individual ones later. |
 | **pre-Win** | Happens before Windows exists (BIOS, Windows Setup). The wizard cannot run there: it shows these steps as a printable pre-flight list, and on first launch offers a read-only **retro-check** where one exists. |
-| **⟳ Rn** | Reboot point. The wizard stores `pendingReboot`, offers "Reboot now", and on resume confirms the reboot through `LastBootUpTime` (ARCHITECTURE §7.3). |
+| **⟳ Rn** | Reboot point. The wizard stores `pendingReboot`, offers "Reboot now", and when the operator starts the exe again from the USB stick it confirms the reboot through `LastBootUpTime` (ARCHITECTURE §7). |
 | **🔒** | Explicit confirmation required (security-reducing or destructive; AGENTS.md rule 3). |
 | **🌐** | Needs internet. **✈** must be offline. |
 | **[Uncertain]** | Carried over from the checklists, scripts or PROJECT_CONTEXT; shown next to the step in the UI. |
@@ -28,16 +28,18 @@ Step ids are `<profile>-<checklist section>.<item>`; they are the keys in
 
 ## 0. Wizard start (both profiles — application plumbing, not a checklist item)
 
-These steps install the wizard itself. They change nothing in Windows'
-configuration except creating the wizard's own folder and its own resume task,
-both removed or left inert at **Finish**.
+These steps prepare the wizard itself. They change nothing in Windows'
+configuration; the only thing written is the wizard's own folder
+(`%ProgramData%\WOSetupWizard`: state, logs, run folders). Nothing is
+installed and nothing starts automatically (decided OQ 23): after every
+reboot the operator starts the exe from the USB stick again.
 
 | Id | Step | Type | Uses | Reboot |
 | --- | --- | --- | --- | --- |
 | W-00.1 | Choose profile (WATCHOUT 7 / WATCHOUT 6) and role (Display / Production). Profile is locked after the first automated step. | M | — | |
 | W-00.2 | **LGPO.exe** is bundled inside the wizard exe (decided OQ 3): verify the extracted copy's Microsoft signature and SHA-256. | C | `Get-AuthenticodeSignature <path>` | |
 | W-00.3 | Environment pre-flight: elevated; show account = elevated user; Windows PowerShell 5.1; no GPO-forced execution policy; OS = Windows 11 Pro 24H2/25H2. | C | ARCHITECTURE §10 | |
-| W-00.4 | Copy wizard to `%ProgramData%\WOSetupWizard\bin`, lock folder ACL, register `\WOSetupWizard\Resume` at logon of the show account. | A | ARCHITECTURE §7 | |
+| W-00.4 | Create `%ProgramData%\WOSetupWizard` (state, logs). No copy of the exe, no scheduled task. | A | ARCHITECTURE §7 | |
 | W-00.5 | Record machine info into state/report: model, BIOS version and date, OS build. | C† | `Get-CimInstance Win32_BIOS, Win32_ComputerSystem, Win32_OperatingSystem` | |
 
 W-00.5 covers part of checklist §1 "write down the BIOS version" automatically
@@ -84,7 +86,7 @@ drivers are loaded*. The wizard never runs any of these commands.
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
-| WO7-03.1 | Log in with the show (auto-logon) account | M+C | C: W-00.3 identity check; records the show account SID (resume task, later checks) | |
+| WO7-03.1 | Log in with the show (auto-logon) account | M+C | C: W-00.3 identity check; records the show account SID (later checks) | |
 | WO7-03.2 | Elevated PowerShell: `.\WO7-Setup.ps1 -Phase PreUpdate` (preceded by `-Audit`, S4) | **A** ✈ | Engine: **WO7-Setup.ps1 -Phase PreUpdate** (no other parameters). Pre-check C†: no physical adapter `Up` (`Get-NetAdapter -Physical`). Post-check C†: `SearchOrderConfig = 0` (`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching`), policies `ExcludeWUDriversInQualityUpdate = 1`, `DontPromptForWindowsUpdate = 1` read back. | ⟳ **R0b** (cable still unplugged; decided OQ 12) |
 | WO7-03.2a | Reboot (cable still unplugged) | M | Checklist line added Oct 2026 (the script's "Reboot now" is right, OQ 12). Pre-check C†: still no physical adapter `Up`. | ⟳ **R0b** |
 | WO7-03.3 | Install NIC driver from USB | **A** | Checklist command: `pnputil /add-driver <path>\*.inf /subdirs /install` (operator picks `<path>`). Exit code `3010` = success, reboot required → offer reboot. | ⟳ only if pnputil returns 3010 |
@@ -211,7 +213,7 @@ apps, OneDrive, Cortana (WinUtil); auto-logon (§7)*.
 | WO7-10.5 | Optional: `secpol.msc` → Network List Manager Policies → User cannot change location | M | Open `secpol.msc` | |
 | WO7-10.6 | Soak test: representative show, several hours, all outputs | M | Optional recorder (OQ 9) | |
 | WO7-10.7 | Image the system disk | M | — | |
-| W-99 | **Finish**: remove `\WOSetupWizard\Resume`, generate report, offer support bundle | A | ARCHITECTURE §7.2 / §8 | |
+| W-99 | **Finish**: mark the build complete, generate report, offer support bundle | A | ARCHITECTURE §8 | |
 
 ### WO7 §11 Maintenance (information page + report section, not steps)
 
@@ -339,7 +341,7 @@ afterwards. WinUtil start as in WO7 §6 (online or offline copy, OQ 4).
 
 | Id | Checklist item | Type | Uses / verification | Reboot |
 | --- | --- | --- | --- | --- |
-| WO6-10.1 | Reboot → auto-logon → WATCHPOINT starts full screen on its own | M | Display role only. After WO6 PostInstall the wizard starts minimised, 60 s after logon, without taking focus (decided OQ 17). | ⟳ **R4** |
+| WO6-10.1 | Reboot → auto-logon → WATCHPOINT starts full screen on its own | M | Display role only. Watch WATCHPOINT start on its own first, then start the wizard from the USB stick (OQ 23). | ⟳ **R4** |
 | WO6-10.2 | Task Scheduler → WATCHOUT → "WATCHPOINT auto-start": last result 0x41301 (running), no time limit | C | `Get-ScheduledTask -TaskPath '\WATCHOUT\' -TaskName 'WATCHPOINT auto-start'` → `Settings.ExecutionTimeLimit = PT0S`; `Get-ScheduledTaskInfo` → `LastTaskResult = 267009` (0x41301). Display role only. | |
 | WO6-10.3 | Defender: `Get-MpComputerStatus \| Select IsTamperProtected, RealTimeProtectionEnabled, BehaviorMonitorEnabled, OnAccessProtectionEnabled` → all False (Off mode) | C | As WO7-10.1 | |
 | WO6-10.4 | `powercfg /getactivescheme` → "WATCHOUT 6" | C | GUID `6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e56` | |

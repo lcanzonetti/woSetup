@@ -39,7 +39,8 @@ it to `docs/OPEN_QUESTIONS.md` instead of implementing it.
 - Machines are often **offline**. No feature may require internet except
   explicitly optional ones (e.g. downloading a tool), and the app must say so.
 - Machines go through **several reboots** during the procedure. The wizard
-  must **persist its state** and **resume at the next logon**.
+  must **persist its state** and reopen on the right step when the operator
+  starts it again from the USB stick (no auto-start; decided Oct 2026).
 - Hardware seen so far: AMD RAIDXpert2 NVMe RAID (Lenovo ThinkStation P8),
   Broadcom MegaRAID, NVIDIA RTX/Quadro GPUs with Quadro Sync II, Pixelhue P20
   switcher downstream. Do not assume any of it is present; detect.
@@ -58,8 +59,10 @@ it to `docs/OPEN_QUESTIONS.md` instead of implementing it.
   at a time, with behaviour parity.
 - **State**: JSON in `%ProgramData%\WOSetupWizard\state.json` (profile WO6/WO7,
   role, options, completed steps, timestamps, backups produced).
-- **Resume after reboot**: a scheduled task at logon (highest privileges) that
-  reopens the wizard on the current step; removed when the wizard finishes.
+- **Resume after reboot**: portable, nothing installed. The exe runs from the
+  USB stick; after each reboot the operator starts it again and it reopens on
+  the current step from `state.json`. No scheduled task, no local copy of the
+  exe (decided Oct 2026, OPEN_QUESTIONS 23).
 - **Logs**: one folder per machine under `%ProgramData%\WOSetupWizard\logs\`,
   including each script transcript, plus an "export support bundle" button.
 - **Options** map 1:1 to script parameters (`-Role`, `-DefenderMode`,

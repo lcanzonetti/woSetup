@@ -23,17 +23,17 @@ that deviates from the checklists or adds behaviour waits for the owner.
 | 11 | `-KeepService` array via `-File` | M2 | Decided |
 | 12 | Reboot after PreUpdate? | M2 | Decided |
 | 13 | WO7 §8 registry checks after the reboot | M3 | Decided |
-| 14 | WO7 §8 settings: manual or reuse WO6 automation | M3 | Decided (scope to confirm) |
+| 14 | WO7 §8 settings: manual or reuse WO6 automation | M3 | Decided |
 | 15 | Backups on re-run: restore from the first one | M2/M4 | Decided |
 | 16 | Proposed read-only checks (†) | M3 | Decided |
-| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 | Decided |
+| 17 | Wizard vs WATCHPOINT full screen after reboot (WO6) | M1/M3 | Superseded by 23 |
 | 18 | Show account must be a local administrator | M2 | Decided |
 | 19 | WO7 install-path detection takes the first "WATCHOUT" entry | M2 | Closed (not needed) |
 | 20 | WO6: cable unplugged before WinUtil, which needs internet | M3 | Decided |
 | 21 | Smart App Control | M5 | Closed (not now) |
 | 22 | Finish before or after imaging | M5 | Closed (not now) |
-| 23 | Portable exe vs resume after reboot | M1 | **Open** |
-| 24 | Audit labels (Set / Not Set / N/A) | S4 | **Open** |
+| 23 | Portable exe vs resume after reboot | M1 | Decided |
+| 24 | Audit labels (Set / Not Set / N/A) | S4 | Decided |
 
 ---
 
@@ -299,6 +299,8 @@ script and verified on a VM, not in the wizard.
 
 **Owner decision (Oct 2026):** **Automate them in WO7-Setup.ps1 like WO6-Setup.ps1** (MILESTONES S1, separate PR). Assumed scope: the whole `Set-WindowsSettings` function, i.e. visual effects too (WO7 checklist 10.3 says "skip if ticked in WinUtil"; applying both is harmless). Indexing (10.15) stays manual for WO7: WO6 covers it by disabling the Windows Search service, which is part of the ch. 11 service list, not of `Set-WindowsSettings`. **Confirm this scope.**
 
+**Scope confirmed (Oct 2026):** port the whole `Set-WindowsSettings` function from WO6, visual effects included.
+
 ## 15. Backups when a phase is re-run (new)
 
 **Finding:** every run writes new backups (`LGPO_Backup_<stamp>`,
@@ -340,7 +342,7 @@ focus. The operator brings it up with Alt+Tab when ready. The verification
 step asks "Did WATCHPOINT start full screen on its own?" and then reads the
 task result (WO6-10.2).
 
-**Owner decision (Oct 2026):** **As recommended** (minimised, 60 s delay, no focus).
+**Owner decision (Oct 2026):** **Superseded by item 23 (C):** the wizard never starts by itself, so it cannot cover WATCHPOINT. The operator checks WATCHPOINT first, then starts the wizard.
 
 ## 18. Show account must be a local administrator (new)
 
@@ -436,7 +438,7 @@ Options:
 - **C — no auto-resume:** you always start it from the stick after a reboot;
   the wizard reopens on the right step. Simplest, but deviates from AGENTS.md.
 
-**Owner decision:** _A, B or C?_
+**Owner decision (Oct 2026):** **C — no auto-resume.** The exe runs only from the USB stick; after each reboot the operator starts it again and it reopens on the current step. AGENTS.md updated.
 
 ## 24. Audit labels: only Set / Not Set? (new)
 
@@ -450,5 +452,5 @@ as "Not Set" would look like a failure.
 reason (option, hardware, or "action, not a setting"). The final audit
 passes when nothing is "Not Set".
 
-**Owner decision:** _Set / Not Set / N/A OK?_
+**Owner decision (Oct 2026):** **Set / Not Set / N/A, as recommended.**
 
