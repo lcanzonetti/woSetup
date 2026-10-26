@@ -20,14 +20,15 @@ Sources of truth (unchanged by this document):
 
 1. **The checklists define the flow; the scripts define the changes.** The
    wizard adds no Windows tweak of its own. The only things it writes to the
-   machine outside the scripts are its own files (`%ProgramData%\WOSetupWizard`),
-   its own resume scheduled task, and the commands the checklists spell out
+   machine outside the scripts are its own files (`%ProgramData%\WOSetupWizard`:
+   state, logs, run folders) and the commands the checklists spell out
    (`pnputil /add-driver …`, `manage-bde -off C:`), each behind a confirmation.
 2. **Read back, never assume.** Every automated step ends with a parsed result
    (OK / warnings / fatal) and, where possible, an independent read-only check.
 3. **Offline first.** Nothing needs internet except steps the checklist already
    does online (Windows Update, WinUtil), and those are labelled as such.
-4. **State survives reboots and power loss.** Atomic writes, resume at logon.
+4. **State survives reboots and power loss.** Atomic writes; the operator
+   restarts the exe from the USB stick and it reopens on the current step.
 5. **The .ps1 scripts are the engine for now.** They run unmodified under
    Windows PowerShell 5.1. A thin wrapper handles argument passing and output
    encoding (§6). Porting to C# comes later, one function at a time, with
@@ -74,7 +75,6 @@ WOSetupWizard.sln
 │  │
 │  ├─ WOSetup.Windows/         net10.0-windows (everything that touches the OS)
 │  │   PowerShell/  PowerShellRunner, EngineWorkspace, PowerShellLocator
-│  │   Resume/      ResumeTaskManager, SelfInstaller, FolderAcl
 │  │   Reboot/      RebootManager, PendingRebootProbe, BootTimeProvider
 │  │   Identity/    SessionIdentity (elevated user vs interactive desktop user)
 │  │   Checks/      PowerShellJsonCheck, RegistryValueCheck, MonitorDpiCheck, …
@@ -343,7 +343,6 @@ Location: `%ProgramData%\WOSetupWizard\state.json` (AGENTS.md).
     "requestedAt": "2026-10-22T15:20:00+02:00",
     "lastBootAtRequest": "2026-10-22T08:01:55+02:00"
   },
-  "resumeTask": { "registered": true, "path": "\\WOSetupWizard\\Resume" },
   "finishedAt": null
 }
 ```
@@ -492,7 +491,7 @@ result file:
 | --- | --- |
 | `  [SET]     <item>` | Current value already equals what the script applies with these options. |
 | `  [NOT SET] <item> (current: <value>)` | Different or missing; a real run would change it. |
-| `  [N/A]     <item> (<reason>)` | Not applied with these options or on this hardware, e.g. `-KeepFirewall`, `-Role Production`, no AMD GPU. *(Third state proposed, OQ 24.)* |
+| `  [N/A]     <item> (<reason>)` | Not applied with these options or on this hardware, e.g. `-KeepFirewall`, `-Role Production`, no AMD GPU. *(Decided, OQ 24.)* |
 
 Rules:
 
@@ -539,39 +538,34 @@ Standalone Use Terms.pdf" in the LGPO download) are still unread and stay
 
 ## 7. Resume after reboot
 
-### 7.1 Self-install on first launch
+**Decided (OQ 23, option C): portable, no auto-start.** The exe runs from the
+USB stick and is never copied to the machine; no scheduled task is created.
 
-> **Pending OQ 23** (portable, no installation): this section describes option A.
-> The owner wants a portable exe run from a USB stick; how resume-after-reboot
-> works without a local copy is open.
+### 7.1 How the operator continues after a reboot
 
-The wizard starts from the USB stick. Drive letters change and the stick may
-be removed, so on first launch it copies itself to
-`%ProgramData%\WOSetupWizard\bin\WOSetupWizard.exe` and from then on always
-runs from there (the USB copy re-launches the installed copy and exits).
+- Before every reboot point the wizard says: *"After the restart, sign in and
+  start WOSetupWizard.exe from the USB stick again."*
+- On start, the exe reads `%ProgramData%\WOSetupWizard\state.json` (state
+  and logs always live on the machine, never on the stick) and opens on the
+  current step. Any copy of the exe resumes, so the stick's drive letter and
+  which stick it is do not matter.
+- The exe asks for elevation (UAC) at each start, as the manifest requires.
+  After WO6 PostInstall sets UAC to "Never notify" there is no prompt any more.
+- Version check: a newer exe migrates an older `state.json` (`StateMigrator`);
+  an older exe refuses a `state.json` with a newer `schemaVersion` and says
+  which version to use.
+- A named mutex (`Global\WOSetupWizard`) stops two windows opening if the
+  exe is started twice.
 
-Because an **elevated task runs that exe at every logon**, the folder must not
-be writable by standard users (default `%ProgramData%` ACLs let Users create
-files in subfolders, which would allow planting a file that runs elevated).
-`FolderAcl` sets on `%ProgramData%\WOSetupWizard`: inheritance off, SYSTEM and
-Administrators Full Control, Users Read & Execute.
+### 7.2 What this removes from the earlier design
 
-### 7.2 The scheduled task
+No `SelfInstaller`, no `\WOSetupWizard\Resume` task, no
+`%ProgramData%\WOSetupWizard\bin` folder and no folder-ACL hardening (that
+was only needed because an elevated task would have run a file from disk).
+Finish only marks the build complete and produces the report.
 
-Registered through the Task Scheduler COM API (`Schedule.Service`, no extra
-package) from this definition:
-
-| Setting | Value | Why |
-| --- | --- | --- |
-| Path / name | `\WOSetupWizard\Resume` | Own folder, easy to find and remove. Distinct from `\WATCHOUT\`. |
-| Trigger | At logon of the **show account** only (SID from state), delay 15 s | Not for every user; lets Explorer settle. |
-| Principal | That user, `InteractiveToken`, **RunLevel Highest** | Opens elevated **without a UAC prompt** in the user's desktop. |
-| Action | `%ProgramData%\WOSetupWizard\bin\WOSetupWizard.exe --resume` | |
-| Settings | `ExecutionTimeLimit PT0S`, `MultipleInstances IgnoreNew`, start on battery allowed | Same reasoning as the WO6 WATCHPOINT task (72 h default limit). |
-
-Removed when the operator presses **Finish** (or "Remove auto-start" in the
-Backups & tools page). A named mutex (`Global\WOSetupWizard`) keeps a manual
-start and the task from opening two windows.
+This deviates from the original AGENTS.md wording ("resume at the next
+logon"); AGENTS.md has been updated to match.
 
 ### 7.3 Confirming a reboot really happened
 
@@ -589,15 +583,12 @@ driver installers): `HKLM\…\Component Based Servicing\RebootPending`,
 `HKLM\…\WindowsUpdate\Auto Update\RebootRequired`,
 `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations`.
 
-### 7.4 Interaction with auto-logon and WATCHPOINT (WO6)
+### 7.4 WATCHPOINT and the wizard after a reboot (WO6)
 
-Until `netplwiz` auto-logon is set (checklist §7), the operator signs in by
-hand and the task fires at that logon. After WO6 PostInstall, WATCHPOINT
-also starts at logon (8 s delay) and goes full screen over the wizard. **Decided
-(OQ 17):** once WO6 PostInstall has run (Display role), the resume task starts
-the wizard **minimised, 60 s after logon, without taking focus**; the
-operator brings it up with Alt+Tab after checking that WATCHPOINT went full
-screen on its own.
+Because the wizard does not start by itself, it cannot cover WATCHPOINT: after
+the WO6 PostInstall reboot the operator first watches WATCHPOINT start full
+screen on its own (WO6-10.1), then starts the wizard from the stick. (This
+replaces the OQ 17 "start minimised" plan.)
 
 ---
 
@@ -606,7 +597,6 @@ screen on its own.
 ```
 %ProgramData%\WOSetupWizard\
   state.json, state.json.bak
-  bin\WOSetupWizard.exe
   logs\<COMPUTERNAME at first run>\
     wizard.log                         app log, one line per event, local time + UTC offset
     runs\<yyyyMMdd_HHmmss>_<Phase>\    one folder per engine run
