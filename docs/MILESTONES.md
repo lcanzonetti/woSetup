@@ -118,8 +118,7 @@ in WIZARD_FLOW works and stores evidence.
 
 Decided: all † checks approved (OQ 16); WO7 registry checks moved to §10
 (OQ 13, checklist updated). Also decided: WO7 §8 settings automated via script change S1
-(OQ 14); WinUtil online or offline copy (OQ 4, OQ 20). The WO7 §8 checks are
-written against S1's values, so S1 should land before M3 ends.
+(OQ 14, done in code); WinUtil online or offline copy (OQ 4, OQ 20).
 
 Scope:
 - `CheckRegistry` with all checklist checks and the approved † checks;
@@ -230,7 +229,7 @@ Acceptance:
 
 | Id | Change | Source of decision | Verification |
 | --- | --- | --- | --- |
-| **S1** | `WO7-Setup.ps1`: add `Set-WindowsSettings` from `WO6-Setup.ps1` to PostInstall (UAC never notify, Remote Assistance off, visual effects best performance incl. `UserPreferencesMask` **[Uncertain]**, No Sounds, defrag schedule off, USB notifications off **[Uncertain]**, taskbar badges off). Then update the WO7 checklist: §8 items move to the §9 "applied by PostInstall" text. | OQ 14 | Parse-check + Pester; VM-EN run, values read back after reboot; same open items as WO6 (OQ 10) |
+| **S1** ✅ | `WO7-Setup.ps1` PostInstall: `Set-WindowsSettings` copied unchanged from `WO6-Setup.ps1` (UAC never notify, Remote Assistance off, visual effects best performance incl. `UserPreferencesMask` **[Uncertain]**, No Sounds, defrag schedule off, USB notifications off **[Uncertain]**, taskbar badges off); new `Set-SearchIndexing` (WSearch disabled, CSV backup, guide 10.15); `Win8DpiScaling`/`LogPixels` 96 added to `Set-PerformanceRegistry` (12.3). Not ported: adapter bindings, chapter 11 services. WO7 checklist §8–§10 updated. **Done in code; not yet run on Windows.** | OQ 14 | Parse-check + Pester (CI, M2); VM-EN run, values read back after reboot; same open items as WO6 (OQ 10) |
 | **S2** | Result file: optional `-ResultPath <file>` in both scripts (JSON: phase, options, warnings, backups, restore commands, audit items). Plus the testability refactor (approved, OQ 2): LGPO text rendering moved out of `Invoke-PolicyApply` into `ConvertTo-LgpoText`, same output, so Pester can check `lgpo_<phase>.txt` without LGPO.exe. | OQ 2 | Pester; normal-run transcript unchanged |
 | **S4** | Audit mode: `-Audit` switch in both scripts, read-only, `[SET]` / `[NOT SET]` / `[N/A]` (OQ 24) for every item the phase applies; desired values defined once, shared by apply and audit (A §6.4a). Do after S1 so WO7 includes the new settings. | OQ 10 | Pester for comparisons; VM-EN: audit on a fresh checkpoint = mostly Not Set, after PostInstall + reboot = all Set; end state of a normal run identical before/after S4 |
 | S3 | (Later) chosen WinUtil tweaks folded into the scripts; owner provides the list | OQ 4 | VM-EN, per tweak |

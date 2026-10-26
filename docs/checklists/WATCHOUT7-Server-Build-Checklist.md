@@ -82,26 +82,20 @@ Run after updates and drivers, before WATCHOUT. Errors about wermgr, PeriodInNan
 
 ## 8. Windows settings from the Dataton guide
 
-The guide's chapters 10–13 that PostInstall and WinUtil don't cover, adapted to Windows 11 and WATCHOUT 7. Guide section numbers in brackets.
+The guide's chapters 10–13 adapted to Windows 11 and WATCHOUT 7. Guide section numbers in brackets.
 
-### Settings
+Applied by PostInstall (section 9), same as the WATCHOUT 6 script: UAC never notify (10.8), visual effects "Adjust for best performance" (10.3), Remote Assistance off (10.4), sound scheme "No Sounds" (10.7), scheduled disk optimisation off (10.9), USB notifications off (10.12), taskbar badges off (10.13), indexing off by disabling the Windows Search service (10.15), and 100 % / 96 DPI values (12.3). They are checked after the reboot in section 10.
 
-- [ ] UAC: Control Panel → User Accounts → Change User Account Control settings → **Never notify** (10.8)
-- [ ] Visual effects: `sysdm.cpl` → Advanced → Performance → Adjust for best performance (10.3; skip if ticked in WinUtil)
-- [ ] Remote Assistance: `sysdm.cpl` → Remote → untick "Allow Remote Assistance connections to this computer" (10.4)
-- [ ] Sounds: `mmsys.cpl` → Sounds → Sound Scheme "No Sounds" (10.7)
-- [ ] Disk optimisation: `dfrgui` → Change settings → untick "Run on a schedule" (10.9)
-- [ ] USB: Settings → Bluetooth & devices → USB → connection and USB-issue notifications off (10.12)
-- [ ] Taskbar: Settings → Personalization → Taskbar → Taskbar behaviors → show badges off (10.13)
+### Settings (manual)
+
 - [ ] Startup apps: Settings → Apps → Startup → turn off everything not needed, above all anything that can steal focus (10.14)
-- [ ] Indexing: every drive → Properties → untick "Allow files on this drive to have contents indexed" (10.15)
-- [ ] Display scale 100% on every output: Settings → System → Display → Scale (replaces the guide's DPI registry values, 12.3)
+- [ ] Display scale 100% on every output: Settings → System → Display → Scale (12.3; PostInstall also writes the 96 DPI values, but each display keeps its own scale)
 - [ ] Network: `ncpa.cpl` → each show adapter → untick everything except IPv4 (10.10); keep Client for Microsoft Networks and File and Printer Sharing if you use network shares
 - [ ] Wake-on-LAN: enable it in the BIOS and set the NIC's "Wake on Magic Packet" advanced property to Enabled (10.11)
 
 The chapter 12 registry values (TdrDelay, TdrDdiDelay, SystemResponsiveness, Win32PrioritySeparation) are applied by PostInstall and checked in section 10.
 
-Skip from the guide: DirectShow ThreadPriority (WATCHOUT 6 DirectShow playback), ForcePcieLinkSpeed (2018 AMD GPU / X99 workaround), HideAutoLogonUI (Windows Embedded key, likely no effect on Pro), Win8DpiScaling and LogPixels (use Scale 100% instead).
+Skip from the guide: DirectShow ThreadPriority (WATCHOUT 6 DirectShow playback), ForcePcieLinkSpeed (2018 AMD GPU / X99 workaround), HideAutoLogonUI (Windows Embedded key, likely no effect on Pro).
 
 ### Services and tasks
 
@@ -112,7 +106,7 @@ Already handled elsewhere: group policies (ch. 7), AutoPlay (10.1), power plan a
 
 ## 9. PostInstall
 
-Applies power plan, NIC power settings, network location, notifications, the Dataton chapter 7 GPO set (Win11-adapted), the update freeze (automatic updates off, version pinned, notifications off, update services and tasks disabled), the chapter 12 registry values and Defender settings.
+Applies power plan, NIC power settings, network location, notifications, the chapter 10 settings and indexing off (section 8), the Dataton chapter 7 GPO set (Win11-adapted), the update freeze (automatic updates off, version pinned, notifications off, update services and tasks disabled), the chapter 12 registry values and Defender settings.
 
 - [ ] Windows Security → Virus & threat protection → Manage settings → **Tamper Protection Off**
 - [ ] Elevated, from the show account: `.\WO7-Setup.ps1 -Phase PostInstall`
@@ -136,6 +130,9 @@ Applies power plan, NIC power settings, network location, notifications, the Dat
 - [ ] GPU timeouts for slow multi-output mode changes (12.2): `reg query "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay` → 15 (0xf) and `/v TdrDdiDelay` → 60 (0x3c)
 - [ ] Multimedia CPU reserve (12.1): `reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness` → 10 (0xa) (the guide says 5; Windows is reported to treat values under 10 as 10)
 - [ ] Production PC only (12.3): `reg query "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation` → 40 (0x28, equal foreground and background time)
+- [ ] Open Performance Options (`SystemPropertiesPerformance.exe`) once and confirm "Adjust for best performance" is selected and every effect unticked (10.3)
+- [ ] Settings → Bluetooth & devices → USB: notifications shown as off (10.12)
+- [ ] `Get-Service WSearch` → StartType Disabled (10.15)
 - [ ] All nodes discover each other; asset transfer to the RAID0 works
 - [ ] Optional: secpol.msc → Network List Manager Policies → User cannot change location
 - [ ] Soak test: representative show for several hours on all outputs

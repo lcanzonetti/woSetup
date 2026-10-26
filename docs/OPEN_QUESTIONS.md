@@ -299,7 +299,7 @@ script and verified on a VM, not in the wizard.
 
 **Owner decision (Oct 2026):** **Automate them in WO7-Setup.ps1 like WO6-Setup.ps1** (MILESTONES S1, separate PR). Assumed scope: the whole `Set-WindowsSettings` function, i.e. visual effects too (WO7 checklist 10.3 says "skip if ticked in WinUtil"; applying both is harmless). Indexing (10.15) stays manual for WO7: WO6 covers it by disabling the Windows Search service, which is part of the ch. 11 service list, not of `Set-WindowsSettings`. **Confirm this scope.**
 
-**Scope confirmed (Oct 2026, re-confirmed):** port the whole `Set-WindowsSettings` function from WO6 (UAC, Remote Assistance, visual effects, No Sounds, defrag schedule, USB notifications, taskbar badges).
+**Final scope (Oct 2026):** everything WO6 automates for these items, except adapter bindings and the chapter 11 services: the whole `Set-WindowsSettings` function (UAC, Remote Assistance, visual effects, No Sounds, defrag schedule, USB notifications, taskbar badges), indexing off via the Windows Search service, and the 96 DPI values. Implemented as S1 (not yet run on Windows).
 
 ## 15. Backups when a phase is re-run (new)
 

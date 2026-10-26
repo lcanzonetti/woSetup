@@ -607,7 +607,8 @@ replaces the OQ 17 "start minimised" plan.)
       WO7-Setup_<Phase>_<stamp>.log    script transcript (written by the script)
       lgpo_<Phase>.txt                 LGPO text file (written by the script)
       LGPO_Backup_<stamp>\             Local GPO backup (written by the script)
-      UpdateServices_Backup_<stamp>.csv, Services_Backup_<stamp>.csv (WO6)
+      UpdateServices_Backup_<stamp>.csv, Services_Backup_<stamp>.csv (WO6),
+      SearchService_Backup_<stamp>.csv (WO7)
     checks\<StepId>_<stamp>.json       evidence: command shown, raw output, result
     commands\<StepId>_<stamp>.log      pnputil / manage-bde output
 ```
