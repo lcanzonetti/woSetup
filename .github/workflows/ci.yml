@@ -1,0 +1,58 @@
+# Build, test and package on a real Windows runner: the only place where the
+# scripts can be parse-checked and Pester-tested under Windows PowerShell 5.1,
+# which is what the target machines have.
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Unit tests (step engine, state file, options)
+        run: dotnet test tests/WOSetup.Core.Tests -c Release
+
+      - name: Parse-check PowerShell under Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $files = @(Get-ChildItem scripts, src/WOSetup.App/Engine, tests/pester -Filter *.ps1 -Recurse)
+          $bad = 0
+          foreach ($f in $files) {
+              $tokens = $null; $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+              foreach ($e in $errors) {
+                  Write-Host "::error file=$($f.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"
+                  $bad++
+              }
+              Write-Host "$($f.Name): $($errors.Count) parse error(s)"
+          }
+          Write-Host "PowerShell $($PSVersionTable.PSVersion)"
+          if ($bad -gt 0) { exit 1 }
+
+      - name: Pester tests under Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -MinimumVersion 5.5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.5.0
+          $result = Invoke-Pester -Path tests/pester -Output Detailed -PassThru
+          if ($result.FailedCount -gt 0) { exit 1 }
+
+      - name: Publish the portable exe
+        run: dotnet publish src/WOSetup.App -c Release -p:PublishProfile=win-x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WOSetupWizard-${{ github.sha }}
+          path: publish/WOSetupWizard.exe
+          if-no-files-found: error

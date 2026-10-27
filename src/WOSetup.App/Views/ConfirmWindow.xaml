@@ -1,0 +1,32 @@
+<Window x:Class="WOSetup.App.Views.ConfirmWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="720" SizeToContent="Height" MaxHeight="760"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        FontFamily="Segoe UI" FontSize="13">
+    <DockPanel Margin="18">
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+            <StackPanel x:Name="TypedPanel" Orientation="Horizontal" Margin="0,0,0,12" Visibility="Collapsed">
+                <TextBlock x:Name="TypedLabel" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBox x:Name="TypedBox" Width="160" TextChanged="OnTypedChanged" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="OkButton" MinWidth="110" Padding="12,5" Margin="0,0,8,0" IsDefault="False" Click="OnOk" />
+                <Button Content="Cancel" MinWidth="90" Padding="12,5" IsCancel="True" />
+            </StackPanel>
+        </StackPanel>
+        <TextBlock x:Name="IntroText" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10" FontWeight="SemiBold" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="520">
+            <ItemsControl x:Name="LinesList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,0,0,7">
+                            <TextBlock Text="•" DockPanel.Dock="Left" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

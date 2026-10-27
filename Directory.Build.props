@@ -1,0 +1,17 @@
+<Project>
+  <!-- Shared settings for every project in the solution. -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Lets the WPF app build on non-Windows machines (CI on Linux, dev
+         containers). It still only runs on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Version>0.1.0</Version>
+    <!-- Symbols inside the assemblies: no loose .pdb next to the exe, but
+         error details in wizard.log still carry line numbers. -->
+    <DebugType>embedded</DebugType>
+    <Company>WOSetup</Company>
+    <Product>WATCHOUT Server Setup Wizard</Product>
+  </PropertyGroup>
+</Project>

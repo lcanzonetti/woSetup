@@ -77,7 +77,7 @@ drivers are loaded*. The wizard never runs any of these commands.
 | WO7-02.3 | Shift+F10 → `diskpart` → `clean` system volume and RAID0 | M pre-Win | Guidance only (AGENTS.md rule 7) | |
 | WO7-02.4 | Install to unallocated space on the system volume; leave RAID0 untouched | M pre-Win | — | |
 | WO7-02.5 | First reboot: "Windows Boot Manager" in the boot menu (F12 on Lenovo) | M pre-Win | Retro-check C: `bcdedit /enum firmware` (checklist command). C†: which disk holds the FAT32 ESP: `Get-Partition \| Where GptType -eq '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'` | ⟳ R0 (Windows Setup, outside the wizard) |
-| — | If the boot entry is missing: `bcdboot W:\Windows /s S: /f UEFI`, `bcdedit /enum firmware` | M | Shown as recovery text, never executed | |
+| WO7-02.6 | If the boot entry is missing: `bcdboot W:\Windows /s S: /f UEFI`, `bcdedit /enum firmware` | M | Shown as recovery text, never executed | |
 
 **The wizard is first launched here**, on the first boot, from the USB stick
 (W-00.x run now).
@@ -138,8 +138,8 @@ pick the list); until then this section stays manual.
 | WO7-06.4 | Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off | M (tick list) | — | |
 | WO7-06.5 | Do NOT click either Ultimate Performance button | M | — | |
 | WO7-06.6 | Multiplane Overlay: leave Enabled; disable only if soak test shows flicker/blackouts | M | Note: registry method reportedly ignored on 24H2+ **[Uncertain]** | |
-| — | (after WinUtil) | C† | Pending-reboot probe; the checklist specifies no reboot here | ⟳ only if pending |
-| — | Online launch used: unplug the cable again if the machine should stay offline | M | Shown only if the cable was plugged in for this step | |
+| WO7-06.7 | (after WinUtil) | C† | Pending-reboot probe; the checklist specifies no reboot here | ⟳ only if pending |
+| WO7-06.8 | Online launch used: unplug the cable again if the machine should stay offline | M | Shown only if the cable was plugged in for this step | |
 
 ### WO7 §7 WATCHOUT 7 and NVIDIA
 
@@ -192,8 +192,8 @@ apps, OneDrive, Cortana (WinUtil); auto-logon (§7)*.
 | --- | --- | --- | --- | --- |
 | WO7-09.1 | Windows Security → Manage settings → **Tamper Protection Off** | M+C | Open Windows Security (`windowsdefender://threatsettings` **[Uncertain URI on 25H2]**). C: `Get-MpComputerStatus \| Select IsTamperProtected` → `False`. Required only for `-DefenderMode Off`. | |
 | WO7-09.2 | Options (checklist option table) | M | Options page (MILESTONES M4): `-Role`, `-DefenderMode`, `-KeepFirewall`, `-PinVersion`, `-KeepUpdateService`, `-WatchoutPath`, `-WorkingDirectory`. Shows the exact command line. | |
-| WO7-09.3 | Elevated, from the show account: `.\WO7-Setup.ps1 -Phase PostInstall` | **A** 🔒 | Engine: **WO7-Setup.ps1 -Phase PostInstall** + options. Pre-checks: show account = elevated user; Tamper Protection (if Off mode); LGPO.exe. Confirmation summary (ARCHITECTURE §4.5). | |
 | WO7-09.2a | Audit before applying: `WO7-Setup.ps1 -Phase PostInstall -Audit` with the same options → each item **Set** / **Not Set** | C | Read-only (decided OQ 10; script change S4). Feeds the confirmation summary: only "Not Set" items will change. | |
+| WO7-09.3 | Elevated, from the show account: `.\WO7-Setup.ps1 -Phase PostInstall` | **A** 🔒 | Engine: **WO7-Setup.ps1 -Phase PostInstall** + options. Pre-checks: show account = elevated user; Tamper Protection (if Off mode); LGPO.exe. Confirmation summary (ARCHITECTURE §4.5). | |
 | WO7-09.4 | Read the warnings summary; fix and re-run if needed (safe to repeat) | C | Parsed `[WARN]` lines vs "Completed with N warning(s)". Re-run = same step, same options (banner if options changed: earlier changes are not undone). | |
 | WO7-09.5 | Reboot | M | | ⟳ **R3** |
 
@@ -319,8 +319,8 @@ afterwards. WinUtil start as in WO7 §6 (online or offline copy, OQ 4).
 | WO6-08.1 | Tamper Protection Off | M+C | As WO7-09.1 | |
 | WO6-08.2 | **Network cable to show devices unplugged or idle (bindings and NIC changes reset the link)** | M | Included in the confirmation text | |
 | WO6-08.3 | Options (checklist option table) | M | Options page: `-Role`, `-ShowsPath`, `-StartDelay`, `-KeepService`, `-KeepServices`, `-KeepAdapterBindings`, `-KeepFirewall`, `-DefenderMode`, `-KeepUpdateService`, `-ForcePcieLinkSpeed`, `-WatchoutPath`, `-PinVersion` | |
-| WO6-08.4 | Elevated, from the show account: `.\WO6-Setup.ps1 -Phase PostInstall` (+ options) | **A** 🔒 | Engine: **WO6-Setup.ps1 -Phase PostInstall** + options via the wrapper (array `-KeepService` splatted correctly). Pre-checks as WO7-09.3. Confirmation summary includes services, bindings, firewall, Defender, Windows Update. | |
 | WO6-08.3a | Audit before applying: `WO6-Setup.ps1 -Phase PostInstall -Audit` with the same options → **Set** / **Not Set** | C | As WO7-09.2a | |
+| WO6-08.4 | Elevated, from the show account: `.\WO6-Setup.ps1 -Phase PostInstall` (+ options) | **A** 🔒 | Engine: **WO6-Setup.ps1 -Phase PostInstall** + options via the wrapper (array `-KeepService` splatted correctly). Pre-checks as WO7-09.3. Confirmation summary includes services, bindings, firewall, Defender, Windows Update. | |
 | WO6-08.5 | Read the warnings summary; fix and re-run with the SAME options | C | As WO7-09.4 | |
 | WO6-08.6 | Keep `Services_Backup_<timestamp>.csv` and the `LGPO_Backup_<timestamp>` folder | A | Automatic: they stay in the run folder, are listed in Backups & tools and in the report, and go into the support bundle. Operator can also copy them to USB. | |
 | WO6-08.7 | Reboot | M | | ⟳ **R3** |
