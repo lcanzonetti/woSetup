@@ -1,6 +1,7 @@
 # Architecture — WATCHOUT Server Setup Wizard
 
-Status: **proposal for owner review** (Oct 2026). Nothing here is implemented.
+Status: implemented as described, except where marked (Oct 2026). Section 4
+was rewritten for the "check and do" redesign (Oct 2026).
 Decisions that still need the owner are marked **(decision needed → OQ n)**,
 which points to the matching item in `docs/OPEN_QUESTIONS.md`.
 Behaviour the docs or scripts flag as **[Uncertain]** stays flagged here.
@@ -122,131 +123,108 @@ Windows.
 
 ## 4. Step model
 
+Redesign (owner, Oct 2026): the wizard starts on a machine where Windows is
+already installed (BIOS, RAID arrays and Windows Setup are done before it;
+the old checklist sections "Before you start" and "Install Windows" are
+gone). It **performs** what can be automated, after a confirmation, and
+waits for the operator on the rest. Every step that can be checked is
+checked, so the wizard also works on machines prepared earlier, by hand.
+
 ### 4.1 Step kinds (one class per kind, as AGENTS.md asks)
 
 | Kind | Class | What the operator sees | Completes when |
 | --- | --- | --- | --- |
-| **Automated** | `AutomatedStepDefinition` | Summary, options preview, exact command line, **Run** | The run finished (exit 0) **and** the result was reviewed. Warnings → status `DoneWithWarnings`, never silently `Done`. |
-| **Manual** | `ManualStepDefinition` | Instructions, optional **Open** button (e.g. `sysdm.cpl`, `ms-settings:display`), optional linked checks, **Mark done** | Operator marks it done. If linked checks fail, marking done asks for a reason, which goes into the state and the report. |
-| **Check** | `CheckStepDefinition` | The command shown in the checklist, expected value, **Verify** | The check returns `Pass`. `Warn`/`Fail` keep the step open; the operator may **accept** with a typed reason. |
+| **Automated** | `AutomatedStep` | What the wizard will do, **Do it** / **Run PreUpdate** / **Restart now** | The action finished and its read-back (the step's check) agrees. Warnings → `DoneWithWarnings`, never silently `Done`. |
+| **Manual** | `ManualStep` | Instructions, **Open** buttons (e.g. `ncpa.cpl`), **Mark done** | The operator marks it done. If the step has a check, it runs first; a "not done" answer needs an explicit "mark done anyway", recorded in the note. |
+| **Check** | `CheckStep` | **Check now** | The check returns Done (or Not applicable). |
 
-A manual step can carry checks (e.g. *Tamper Protection Off* → check
-`IsTamperProtected = False`). An automated step can carry pre-checks (gate)
-and post-checks (read-back).
-
-### 4.2 Common fields
+### 4.2 Fields (`Flow/FlowModels.cs`)
 
 ```text
 StepDefinition
-  Id                 "WO7-09.3"        stable; used as the key in state.json
-  Section            "9. PostInstall"  checklist section, for the left rail
-  ChecklistRef       line text it implements (for traceability)
-  Title, Body        English, from Strings.resx
-  Profiles           [WO7] | [WO6]
-  Roles              [Display, Production] (default both)
-  AppliesWhen        optional hardware/option condition, e.g. "AmdRaidPresent", "DefenderMode == Off"
-  PreChecks[]        check ids that must pass (or be accepted) before Run / Mark done
-  PostChecks[]       check ids run after
-  Confirm            null | ConfirmationSpec   (destructive / security-reducing → explicit confirm)
-  Reboot             None | Required | IfPending
-  Network            Any | MustBeOffline | NeedsInternet   (shown as a badge)
-  Uncertain[]        "[Uncertain] …" notes shown next to the step
-  Proposed           true for checks not in the checklist (owner approval pending, see WIZARD_FLOW)
-```
-
-```text
-AutomatedStepDefinition : StepDefinition
-  Action   = EnginePhase { Script: WO7|WO6, Phase: PreUpdate|PostInstall }
-           | ChecklistCommand { Template: "pnputil /add-driver {folder}\*.inf /subdirs /install",
-                                Inputs: [FolderPicker] }
-           | ChecklistCommand { Template: "manage-bde -off C:" }
-ManualStepDefinition : StepDefinition
-  OpenTargets[]   e.g. "sysdm.cpl", "ms-settings:windowsupdate", "netplwiz"
-  TickList[]      for WinUtil: the exact tick list from the checklist
-  Captures[]      values the operator types that feed options or the report
-                  (e.g. working directory path, tested NVIDIA version, BIOS RAID mode)
-CheckStepDefinition : StepDefinition
-  CheckId         implemented in code (CheckRegistry)
-  DisplayCommand  exact command from the checklist, shown to the operator
-  Expectation     e.g. "all False", "= WATCHOUT 7", "three matches"
+  Id            "WO7-07.4"   stable key in state.json
+  Title, Details
+  Check         read-only test telling whether the step is already done:
+                  an id in Engine/WO-Checks.ps1 ("bitlocker-off", "tamper-off"...),
+                  a native check ("lgpo", "display-scale"), or
+                  "audit:PreUpdate" | "audit:PostInstall" | "audit:Both" (the scripts' -Audit)
+  Action        automated steps only:
+                  { type: script,  phase: PreUpdate|PostInstall }
+                  { type: command, name: bitlocker-off|media-disk-init|indexing-off|static-ip|wol-enable }
+                  { type: restart } | { type: finish }
+  After         "only needed when step X is performed now" (restart after PostInstall,
+                read its warnings, review options). If X is found already done by a
+                check, this step becomes Not applicable ("Not needed: ...").
+  Roles, NeedsInternet, MustBeOffline, Confirm, Uncertain, OptionsStep, AutoDone,
+  Informational (a check that is done once it ran: the audit before PostInstall)
 ```
 
 ### 4.3 Flow catalogue as data
 
-The step list lives in `flows/wo7.flow.json` and `flows/wo6.flow.json`
-(embedded), not in C#. Reasons: the checklists change more often than the
-code, the owner can review a diff of the flow, and a unit test can assert
-the flow matches the checklist section order. Check **implementations** live
-in C# (`CheckRegistry`), referenced by id.
-
-```json
-{
-  "id": "WO7-05.1",
-  "section": "5. Disks",
-  "kind": "check",
-  "title": "Device encryption is off",
-  "checkId": "bitlocker.c.decrypted",
-  "displayCommand": "manage-bde -status C:",
-  "expectation": "Fully Decrypted",
-  "onFail": { "offerStep": "WO7-05.1a" }
-}
-```
-
-`FlowValidator` (unit-tested) checks: unique ids; every `checkId` exists;
-sections in checklist order; no automated step without a confirmation if it
-is in the "security-reducing" list; every reboot point is followed by a step
-that confirms the reboot happened.
+`tools/flowgen/generate_flows.py` is the source of the step lists. It writes
+`src/WOSetup.Core/Flows/wo7.flow.json`, `wo6.flow.json` (embedded) and
+`docs/WIZARD_FLOW.md`. `FlowValidator` (unit-tested) checks: unique ids,
+section order, automated steps have an action and only they do, check steps
+have a check, valid audit phases and command names, `after` targets exist,
+exactly one PreUpdate and one PostInstall run, PreUpdate before PostInstall.
 
 ### 4.4 Step status lifecycle
 
 ```text
-NotStarted ─► InProgress ─► Done
-                │      ├──► DoneWithWarnings   (warnings listed, kept in report)
-                │      ├──► Failed             (exit ≠ 0 or [FATAL]; may re-run)
-                │      ├──► Interrupted        (operator cancelled / power loss during run)
-                │      └──► AwaitingReboot ─► (after boot-time check) Done
-                ├──► Skipped         (operator, typed reason required)
-                └──► NotApplicable   (profile/role/hardware; reason recorded)
+NotStarted ─► InProgress ─► Done | DoneWithWarnings | Failed | Interrupted
+     │                └──► AwaitingReboot ─► (boot time moved) Done
+     ├──► Done (found by the check)     ── check says Done
+     ├──► NotDone                        ── check says the goal is missing
+     ├──► Skipped (reason)  /  NotApplicable (reason, role, check or "not needed")
 ```
 
-`StepNavigator` rules:
+How a check result changes a step (`WizardSession.ApplyCheck`):
 
-- The "current step" is the first step not in a final state.
-- The operator may **look** at any step, but **Run** on an automated step is
-  enabled only if every earlier step is final (Done / DoneWithWarnings /
-  Skipped / NotApplicable). This is how "order matters" is enforced
-  (PreUpdate before any driver; PostInstall after updates, drivers, WinUtil,
-  WATCHOUT).
-- An `InProgress` automated step found at startup (power loss / crash) becomes
-  `Interrupted`; the UI says the scripts are safe to re-run with the same
-  options.
+| Check says | Step becomes |
+| --- | --- |
+| Done | Done, flagged "found by the check", unless already final |
+| Not done | NotDone, also when it was Done before (the machine no longer matches) |
+| Not applicable | NotApplicable with the reason, unless already final |
+| Can't check | unchanged; the detail is shown |
 
-### 4.5 Confirmations ("show before changing")
+Skipped / NotApplicable set by the operator, role-based NotApplicable, and
+running or rebooting steps are never changed by a check.
 
-`ConfirmationSummaryBuilder` turns the current options into plain sentences
-before every security-reducing or destructive action, e.g. for WO6 PostInstall
-with defaults:
+### 4.5 Check this machine, Fix what's missing
 
-> - Windows Firewall will be turned **off** on all profiles (guide 7.1).
-> - Microsoft Defender real-time protection will be turned **off** by policy
->   (Tamper Protection is currently: Off).
-> - Windows Update will be **disabled for good**: BITS, wuauserv and UsoSvc
->   disabled, update tasks disabled, SoftwareDistribution emptied.
-> - The guide chapter 11 services present on this machine (the script's list
->   has 41) will be **disabled** (list…). Kept: none.
-> - On every physical network adapter everything except IPv4 will be
->   **unbound**; file shares and IPv6 stop working on those adapters.
-> - Network adapters will briefly lose link. Do not run during a show.
-> - Switching an option later does **not** undo what this run applies.
+- **Check this machine** (also "Start and check" on the start screen): runs
+  every check of the role's steps (`CheckPlan`: native checks, one
+  WO-Checks.ps1 session for the rest, then the PreUpdate and PostInstall
+  audits), applies the results, then the `after` rules, and shows a summary:
+  found done / not done / can't tell / open steps without a check. Nothing is
+  changed on the machine.
+- Open manual steps without a check (WinUtil, NVIDIA Control Panel...) can be
+  ticked in one list ("Manual steps done…") when the operator knows they were
+  done earlier.
+- **Fix what's missing** walks the open steps in checklist order: automatic
+  steps → "Do it / Skip for now / Stop", then the action's own confirmation
+  (section 4.6); manual steps → instructions, Open buttons, "Done – check it";
+  check steps → checked, with "Check again" on failure; restart steps →
+  "Restart now" (the walk resumes after the restart with the same button).
 
-The operator ticks "I have read this" and types the confirmation word
-(`APPLY`). For `manage-bde -off C:` the summary states what device
-encryption protects against and that decryption runs in the background.
-Disk-writing commands (`diskpart clean`, initialising the RAID0) are
-**never executed** by the wizard (AGENTS.md rule 7); they stay manual
-instructions.
+### 4.6 Confirmations ("show before changing")
 
----
+Every automatic step shows a plain-language summary first
+(`ConfirmationSummaryBuilder` for the scripts, `ActionSummaryBuilder` for the
+actions). A typed word is required where the step reduces security or writes
+to a disk:
+
+| Step | Typed word |
+| --- | --- |
+| PostInstall when it turns the firewall or Defender off, or disables Windows Update | `APPLY` |
+| BitLocker off | `DECRYPT` |
+| Media drive initialise + format | `DISK <n>` (the disk number) |
+| Static IP | `APPLY` |
+| Indexing off, Wake on Magic Packet, PreUpdate | plain confirmation |
+
+The media-drive action only accepts a disk without any partition table
+(RAW) that is not the boot/system disk and not USB; the script checks this
+again just before writing (AGENTS.md rule 7). `diskpart clean` is never run.
 
 ## 5. State file
 
@@ -763,21 +741,34 @@ Checks not written in the checklists are marked **proposed** in
 
 ## 11. Check implementation strategy
 
-- First version: most checks run the checklist's own command (or the
-  closest **language-independent** equivalent) through the same
-  `PowerShellRunner`, ending in `| ConvertTo-Json`, and evaluate the JSON in
-  C#. The operator always sees the checklist command.
-- Language independence matters: `manage-bde` and `powercfg` print localised
-  text (an Italian Windows prints Italian status strings). So:
-  - BitLocker: evaluate `Get-BitLockerVolume -MountPoint C:`
-    (`VolumeStatus`, `ProtectionStatus`), show `manage-bde -status C:`.
-  - Power plan: match the plan **GUID** in `powercfg /getactivescheme`
-    (`6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e57` = WATCHOUT 7,
-    `6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e56` = WATCHOUT 6), not the name.
-  - `pnputil /enum-drivers`: match the `.inf` original file names, which are
-    not localised.
-- Later, checks can be ported to native C# (WMI, registry) without changing
-  the flow file, because steps reference checks by id.
+- `src/WOSetup.App/Engine/WO-Checks.ps1` (Windows PowerShell 5.1): one
+  script block per check id, each returning Done / NotDone / NotApplicable /
+  CantCheck with a detail. Every check is wrapped in try/catch: an error is
+  CantCheck, never Done. The wizard runs all needed ids in one PowerShell
+  session (`-Ids a,b,c`, one string because `-File` does not bind arrays).
+- The script settings themselves (policies, registry, services) are checked
+  by the scripts' own `-Audit`, not duplicated in WO-Checks.ps1.
+- Native C# checks: `lgpo` (LGPO.exe bundled or next to the exe) and
+  `display-scale` (per-monitor DPI via `GetDpiForMonitor`; the app is
+  per-monitor DPI aware, so 96 DPI = 100 %).
+- Language independence: BitLocker via `Win32_EncryptableVolume`
+  (`GetConversionStatus`, `ProtectionStatus`), power plan by GUID
+  (`…0e57` = WATCHOUT 7, `…0e56` = WATCHOUT 6), drivers by `.inf` original
+  names from `pnputil /enum-drivers`, services by name.
+- Some steps cannot be told from Windows (whether Windows Update has more
+  to install, WinUtil, NVIDIA Control Panel): their check is CantCheck or
+  absent, and the operator confirms.
+- `[Uncertain]` checks are listed in OPEN_QUESTIONS 25.
+
+### 11.1 Wizard actions (`Engine/WO-Actions.ps1`)
+
+The checklist steps the owner chose to automate (Oct 2026) besides the two
+setup scripts: `bitlocker-off`, `media-disk-init`, `indexing-off`,
+`static-ip`, `wol-enable`, plus two read-only queries for the input dialogs
+(`list-disks`, `list-adapters`). Each prints the scripts' `[OK]`/`[WARN]`
+lines, reads back what it changed, and writes `{ Status, Warnings, Data }`.
+After an action the wizard also runs the step's check, so a BitLocker
+decryption still in progress shows as "not done" with its percentage.
 
 ---
 
@@ -795,10 +786,13 @@ Checks not written in the checklists are marked **proposed** in
 
 ## 13. What the app deliberately does not do
 
-- Run `diskpart`, initialise/format disks, touch RAID arrays or RAID drivers.
+- Run `diskpart`, touch RAID arrays or RAID drivers, or format any disk
+  other than an empty (RAW) non-system disk the operator picked and
+  confirmed by typing its number.
 - Change WATCHOUT/Dataton services or CodeMeter.
 - Change BIOS, NVIDIA Control Panel, Tamper Protection, display scale,
-  netplwiz auto-logon (guides + checks only).
+  auto-logon (guides + checks only). Install Windows updates, drivers, the
+  NVIDIA driver or WATCHOUT (manual, decided Oct 2026; checks only).
 - Re-implement WinUtil tweaks. For now WinUtil is run by the operator
   (online launch or a local offline copy, OQ 4); the owner may later move a
   chosen subset of WinUtil tweaks into the scripts.

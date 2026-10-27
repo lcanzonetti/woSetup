@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using WOSetup.Core.Checks;
 using WOSetup.Core.Engine;
 using WOSetup.Core.Flow;
 using WOSetup.Core.State;
@@ -21,51 +22,74 @@ public sealed class StepItemViewModel : ObservableObject
     public string Id => Step.Id;
     public string Title => Step.Title;
     public string SectionTitle => Step.Section.DisplayTitle;
-    public string TypeLabel => Step.TypeLabel;
     public string Details => Step.Details;
-    public string RebootText => Step.Reboot;
     public IReadOnlyList<string> OpenTargets { get; }
 
     public bool HasDetails => Step.Details.Length > 0;
-    public bool HasRebootText => Step.Reboot.Length > 0;
-    public bool IsPreWindows => Step.PreWindows;
     public bool NeedsInternet => Step.NeedsInternet;
     public bool MustBeOffline => Step.MustBeOffline;
-    public bool NeedsConfirmation => Step.Confirm || Step.Engine is { Audit: false, Phase: EnginePhase.PostInstall };
+    public bool NeedsConfirmation => Step.Confirm;
     public bool IsUncertain => Step.Uncertain;
 
-    public bool HasEngine => Step.Engine is not null;
-    public bool IsApplyRun => Step.Engine is { Audit: false };
-    public bool IsAudit => Step.Engine is { Audit: true };
-    public bool IsRebootStep => Step.RebootStep;
-    public bool IsFinish => Step.Id == "W-99";
-    public bool IsOptionsStep => Step.OptionsStep || IsApplyRun || IsAudit;
+    public bool IsScriptRun => Step.IsScriptRun;
+    public bool IsCommand => Step.IsCommand;
+    public bool IsRestart => Step.IsRestart;
+    public bool IsFinish => Step.IsFinish;
+    public bool HasCheck => Step.HasCheck;
+    public bool IsManual => Step.Kind == StepKind.Manual;
 
-    /// <summary>A reboot is mentioned (Windows Update, driver installers) but the step is not itself a restart.</summary>
-    public bool OffersRestart => !IsRebootStep && Step.Reboot.Contains('⟳') && !Step.PreWindows;
+    /// <summary>The wizard can perform this step (script run or action).</summary>
+    public bool CanDoIt => IsScriptRun || IsCommand;
 
-    /// <summary>Checks and commands the wizard does not run itself yet (later milestone).</summary>
-    public bool NotAutomatedYet => Step.Kind != StepKind.Manual && !HasEngine && !IsFinish && !Step.AutoDone;
+    public string DoItText => Step.Action switch
+    {
+        { Type: ActionType.Script, Phase: var p } => $"Run {p}",
+        _ => "Do it",
+    };
+
+    public string CheckButtonText => Step.IsAuditCheck ? "Run audit (read-only)" : "Check now";
+    public bool IsOptionsStep => Step.OptionsStep || IsScriptRun || Step.IsAuditCheck;
+    public bool CanMarkDone => !IsRestart && !IsFinish;
 
     public string KindText => Step.Kind switch
     {
-        StepKind.Manual => "Manual",
-        StepKind.Check when IsAudit => "Check (script audit, read-only)",
-        StepKind.Check => "Check",
-        _ => IsApplyRun ? "Automated (setup script)" : "Automated",
+        StepKind.Manual => HasCheck ? "Manual: you do it, the wizard checks it" : "Manual: you do it, then confirm",
+        StepKind.Check => Step.IsAuditCheck ? "Check (script audit, read-only)" : "Check (read-only)",
+        _ when IsScriptRun => "Automatic: setup script",
+        _ when IsRestart => "Automatic: restart",
+        _ when IsFinish => "Finish",
+        _ => "Automatic: the wizard does it after you confirm",
     };
 
+    private StepState? S => _session.State.Steps.TryGetValue(Id, out var s) ? s : null;
+
     public StepStatus Status => _session.State.StatusOf(Id);
-    public string? Note => _session.State.Steps.TryGetValue(Id, out var s) ? s.Note : null;
+    public string? Note => S?.Note;
     public bool HasNote => !string.IsNullOrWhiteSpace(Note);
-    public IReadOnlyList<string> Warnings => _session.State.Steps.TryGetValue(Id, out var s) ? s.Warnings : [];
+    public IReadOnlyList<string> Warnings => S?.Warnings ?? [];
     public bool HasWarnings => Warnings.Count > 0;
     public bool IsFinal => WizardSession.IsFinal(Status);
+
+    /// <summary>Last check result, e.g. "Check (27 Oct 10:12): not done – C: protection on".</summary>
+    public string CheckText => S is { CheckState: { } st, CheckedAt: { } at } s
+        ? $"Last check {at:dd MMM HH:mm}: {StateText(st)}" + (string.IsNullOrWhiteSpace(s.CheckDetail) ? "" : $" – {s.CheckDetail}")
+        : "";
+
+    public bool HasCheckText => CheckText.Length > 0;
+
+    private static string StateText(CheckState s) => s switch
+    {
+        CheckState.Done => "done",
+        CheckState.NotDone => "NOT done",
+        CheckState.NotApplicable => "not applicable",
+        _ => "can't tell",
+    };
 
     public string StatusGlyph => Status switch
     {
         StepStatus.Done => "✔",
         StepStatus.DoneWithWarnings => "⚠",
+        StepStatus.NotDone => "✗",
         StepStatus.Failed => "✖",
         StepStatus.Interrupted => "✖",
         StepStatus.InProgress => "…",
@@ -79,8 +103,10 @@ public sealed class StepItemViewModel : ObservableObject
     {
         StepStatus.NotStarted => "Not started",
         StepStatus.InProgress => "Running",
+        StepStatus.Done when S?.Detected == true => "Done (found by the check)",
         StepStatus.Done => "Done",
         StepStatus.DoneWithWarnings => "Done with warnings",
+        StepStatus.NotDone => "Not done (the check says it is missing)",
         StepStatus.Failed => "Failed",
         StepStatus.Interrupted => "Interrupted",
         StepStatus.AwaitingReboot => "Waiting for restart",
@@ -91,13 +117,8 @@ public sealed class StepItemViewModel : ObservableObject
 
     public void Refresh()
     {
-        OnPropertyChanged(nameof(Status));
-        OnPropertyChanged(nameof(StatusGlyph));
-        OnPropertyChanged(nameof(StatusText));
-        OnPropertyChanged(nameof(Note));
-        OnPropertyChanged(nameof(HasNote));
-        OnPropertyChanged(nameof(Warnings));
-        OnPropertyChanged(nameof(HasWarnings));
-        OnPropertyChanged(nameof(IsFinal));
+        foreach (var p in new[] { nameof(Status), nameof(StatusGlyph), nameof(StatusText), nameof(Note), nameof(HasNote),
+                                  nameof(Warnings), nameof(HasWarnings), nameof(IsFinal), nameof(CheckText), nameof(HasCheckText) })
+            OnPropertyChanged(p);
     }
 }

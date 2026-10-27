@@ -50,7 +50,7 @@ public sealed class StatusToBrushConverter : IValueConverter
     {
         StepStatus.Done => Brushes.ForestGreen,
         StepStatus.DoneWithWarnings => Brushes.DarkOrange,
-        StepStatus.Failed or StepStatus.Interrupted => Brushes.Firebrick,
+        StepStatus.Failed or StepStatus.Interrupted or StepStatus.NotDone => Brushes.Firebrick,
         StepStatus.InProgress or StepStatus.AwaitingReboot => Brushes.SteelBlue,
         StepStatus.Skipped or StepStatus.NotApplicable => Brushes.Gray,
         _ => Brushes.DimGray,

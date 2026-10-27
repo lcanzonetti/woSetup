@@ -99,6 +99,33 @@ public sealed class StateStoreTests : IDisposable
     }
 
     [Fact]
+    public void State_from_the_old_step_list_is_not_continued()
+    {
+        var store = new JsonStateStore(StatePath);
+        var s = Sample();
+        s.SchemaVersion = 1;
+        store.Save(s);
+        var r = store.Load();
+        Assert.Null(r.State);
+        Assert.Contains("older version", r.Error);
+    }
+
+    [Fact]
+    public void Check_results_are_saved_with_the_step()
+    {
+        var store = new JsonStateStore(StatePath);
+        var s = Sample();
+        s.Step("WO7-03.1").CheckState = WOSetup.Core.Checks.CheckState.NotDone;
+        s.Step("WO7-03.1").CheckDetail = "C: protection on";
+        s.Step("WO7-03.1").Detected = true;
+        store.Save(s);
+        var st = store.Load().State!.Step("WO7-03.1");
+        Assert.Equal(WOSetup.Core.Checks.CheckState.NotDone, st.CheckState);
+        Assert.Equal("C: protection on", st.CheckDetail);
+        Assert.True(st.Detected);
+    }
+
+    [Fact]
     public void Archive_moves_the_state_aside()
     {
         var store = new JsonStateStore(StatePath);

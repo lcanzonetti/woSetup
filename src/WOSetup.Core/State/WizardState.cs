@@ -1,3 +1,4 @@
+using WOSetup.Core.Checks;
 using WOSetup.Core.Flow;
 using WOSetup.Core.Options;
 
@@ -9,6 +10,9 @@ public enum StepStatus
     InProgress,
     Done,
     DoneWithWarnings,
+
+    /// <summary>The step's check ran and says the goal is not in place.</summary>
+    NotDone,
     Failed,
     Interrupted,
     AwaitingReboot,
@@ -22,7 +26,11 @@ public enum StepStatus
 /// </summary>
 public sealed class WizardState
 {
-    public const int CurrentSchemaVersion = 1;
+    /// <summary>
+    /// 2 = step lists without the old "Before you start" / "Install Windows"
+    /// sections (Oct 2026). Older files belong to wizard 0.1 and are not read.
+    /// </summary>
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public string WizardVersion { get; set; } = "";
@@ -69,6 +77,14 @@ public sealed class StepState
     public int Attempts { get; set; }
     public List<string> RunIds { get; set; } = [];
     public List<string> Warnings { get; set; } = [];
+
+    /// <summary>Set when a check, not the operator, found the step done.</summary>
+    public bool Detected { get; set; }
+
+    /// <summary>Last check result for this step (null = never checked).</summary>
+    public CheckState? CheckState { get; set; }
+    public string? CheckDetail { get; set; }
+    public DateTimeOffset? CheckedAt { get; set; }
 }
 
 public sealed class RunRecord

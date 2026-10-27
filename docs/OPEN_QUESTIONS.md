@@ -454,3 +454,54 @@ passes when nothing is "Not Set".
 
 **Owner decision (Oct 2026):** **Set / Not Set / N/A, as recommended.**
 
+## 25. New checks and actions not confirmed on real hardware (new, v0.2)
+
+Written for the "check and do" redesign without a Windows test machine.
+Each needs a test on a VM, the **[Uncertain]** ones on real hardware:
+
+- **[Uncertain] Blank-password detection** (`auto-logon` check). With no
+  auto-logon in the registry, the check tries a local logon with an empty
+  password: success or error 1327 (blank passwords limited to console
+  logon) = no password, 1326 = has a password. On an account with a
+  password this counts as one failed logon (event 4625, and one step
+  towards the lockout threshold, reset after the lockout window).
+- **[Uncertain] WATCHOUT 7 programs entry** (`watchout-installed`, start
+  screen suggestion): matched as "WATCHOUT" with "7" in the name or a
+  version starting with 7. The real installer name/version is unknown.
+- **[Uncertain] CodeMeter service name** (`codemeter-running`): any service
+  whose name or display name contains "CodeMeter".
+- **[Uncertain] AMD RAID detection** (`amd-raid-drivers`): rcbottom, rcraid,
+  rccfg `.inf` names in the driver store; "no AMD RAID" when none is found
+  and no device name matches "AMD ... RAID".
+- **Wake on Magic Packet**: matched by the advanced property's display name
+  and an Enabled/On value, like EEE in the scripts. Vendor names may differ;
+  "Allow this device to wake the computer" (power management tab) is not
+  set by the wizard.
+- **Display scale**: per-monitor DPI read by the wizard; 96 DPI = 100 %.
+- **Static IP**: replaces the adapter's IPv4 addresses and default route;
+  not tested with several addresses per adapter or with teaming.
+- **BitLocker off**: `manage-bde -off` then a read-back via
+  `Win32_EncryptableVolume`; decryption in progress is reported as "not
+  done" with the percentage.
+- **Media drive**: only RAW disks are offered; Storage Spaces or a RAID
+  volume that Windows shows as offline/read-only is brought online first.
+- **WinUtil, NVIDIA Control Panel, startup apps, Windows Update**: no
+  reliable check from Windows; the operator confirms (one list for steps
+  done earlier).
+
+**Needed from the owner:** test results per item; the exact WATCHOUT 7
+programs entry and CodeMeter service name from a real machine.
+
+## 26. Redesign: what the wizard does itself (new, v0.2)
+
+**Owner decisions (Oct 2026):** the wizard runs on machines where Windows is
+already installed (checklist sections "Before you start" and "Install
+Windows" removed; the "have ready" list stays as a note on the start
+screen). Automatic: BitLocker off, media drive initialise + format,
+indexing off, static IP, Wake on Magic Packet. Manual: Windows Update,
+drivers from the USB folder, NVIDIA driver, WinUtil, NVIDIA Control Panel,
+WATCHOUT install, startup apps. Auto-logon: not needed (the only account
+has no password; the check confirms it). Steps found done by a check are
+marked done and the wizard jumps to what is missing; "Fix what's missing"
+confirms each step.
+

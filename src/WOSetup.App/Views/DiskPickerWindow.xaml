@@ -1,0 +1,32 @@
+<Window x:Class="WOSetup.App.Views.DiskPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Media drive" Width="640" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        FontFamily="Segoe UI" FontSize="13">
+    <StackPanel Margin="18">
+        <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
+                   Text="Choose the empty disk (RAID array) to use as the media drive." />
+        <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="0,4,0,8"
+                   Text="Only disks without any partition table are listed. The boot/system disk and USB disks are never shown. If your array is missing, create it in the RAID app first, or check Disk Management (diskmgmt.msc)." />
+        <ListBox x:Name="DiskList" Height="140" />
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition /><RowDefinition />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Volume label" VerticalAlignment="Center" />
+            <TextBox x:Name="LabelBox" Grid.Column="1" Text="Media" Width="220" HorizontalAlignment="Left" Margin="0,3" />
+            <TextBlock Grid.Row="1" Text="Allocation unit" VerticalAlignment="Center" />
+            <ComboBox x:Name="UnitBox" Grid.Row="1" Grid.Column="1" Width="220" HorizontalAlignment="Left" Margin="0,3" />
+        </Grid>
+        <TextBlock x:Name="ErrorText" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,8,0,0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Continue" MinWidth="110" Padding="12,5" Margin="0,0,8,0" Click="OnOk" />
+            <Button Content="Cancel" MinWidth="90" Padding="12,5" IsCancel="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

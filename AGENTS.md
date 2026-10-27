@@ -7,13 +7,18 @@ Read this file first, then `docs/PROJECT_CONTEXT.md` before changing anything.
 
 A standalone Windows **.exe with a GUI wizard** that guides a media-server
 operator through preparing a **Dataton WATCHOUT 6 or WATCHOUT 7 display server
-(or production PC)** on **Windows 11 Pro 64-bit 25H2**, end to end:
-pre-install checks → Windows install hints → driver lockdown → updates and
-drivers → debloat → WATCHOUT install → OS hardening → verification → imaging.
+(or production PC)** on **Windows 11 Pro 64-bit 25H2**, from the first boot
+after Windows Setup to the finished image: driver lockdown → updates and
+drivers → disks → debloat → WATCHOUT install → OS hardening → verification →
+imaging. BIOS, RAID arrays and Windows Setup are done before the wizard runs
+(decided Oct 2026: the checklists' "Before you start" and "Install Windows"
+sections were removed).
 
-The wizard **automates what can be scripted** and **guides, then verifies,
-what cannot** (BIOS, RAID arrays, Windows Setup, Tamper Protection, NVIDIA
-Control Panel, etc.).
+The wizard **performs what can be automated** (after a confirmation) and
+**waits for the operator, then verifies, what cannot** (Tamper Protection,
+Windows Update, drivers, WinUtil, NVIDIA Control Panel, etc.). Every step
+that can be checked has a check, so the wizard also finds what is missing on
+machines prepared earlier, by hand ("Check this machine").
 
 The procedure already exists and is field-tested as:
 
@@ -96,11 +101,14 @@ it to `docs/OPEN_QUESTIONS.md` instead of implementing it.
 
 ## Things the app must guide but cannot automate
 
-BIOS settings and RAID array creation (system volume FIRST), Windows Setup
-(RAID drivers loaded before touching disks; AMD order rcbottom → rcraid →
-rccfg), Tamper Protection OFF (Microsoft blocks scripting), WinUtil run
-(tweak list in the checklists), NVIDIA Control Panel, `netplwiz` auto-logon,
-display scale per output, Wake-on-LAN in BIOS, soak test, disk imaging.
+Tamper Protection OFF (Microsoft blocks scripting), Windows Update, driver
+and NVIDIA driver installs, WinUtil run (tweak list in the checklists),
+NVIDIA Control Panel, the WATCHOUT install, startup apps, auto-logon (not
+needed when the show account has no password), display scale per output,
+Wake-on-LAN in BIOS, soak test, disk imaging. (BIOS, RAID array creation and
+Windows Setup happen before the wizard.) Automated by the wizard since Oct
+2026: BitLocker off, media drive initialise + format (RAW disk only, typed
+disk number), indexing off, static IPs, Wake on Magic Packet.
 For each: show instructions, then run an automated **check** where one exists
 (e.g. `manage-bde -status C:`, `Get-MpComputerStatus`, `powercfg /getactivescheme`,
 `pnputil /enum-drivers`, `Get-ScheduledTask -TaskPath '\WATCHOUT\'`).
