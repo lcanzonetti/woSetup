@@ -183,8 +183,8 @@ public sealed class SessionTests : IDisposable
     public void Not_applicable_check_closes_an_open_step()
     {
         var s = NewSession(Profile.WO7);
-        s.ApplyChecks([R("WO7-02.2", CheckState.NotApplicable, "No AMD RAID controller")]);
-        Assert.Equal(StepStatus.NotApplicable, s.State.StatusOf("WO7-02.2"));
+        s.ApplyChecks([R("WO7-06.4", CheckState.NotApplicable, "No adapter exposes Wake on Magic Packet")]);
+        Assert.Equal(StepStatus.NotApplicable, s.State.StatusOf("WO7-06.4"));
     }
 
     [Fact]

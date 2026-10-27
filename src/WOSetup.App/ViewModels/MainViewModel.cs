@@ -55,10 +55,6 @@ public sealed partial class MainViewModel : ObservableObject
         _actions = new ActionService(workspace, runner, log);
         StepsView = CollectionViewSource.GetDefaultView(Steps);
         StepsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(StepItemViewModel.SectionTitle)));
-
-        var (profile, text) = ProfileDetector.Detect();
-        if (profile is { } p) StartProfile = p;
-        DetectedProfileText = text;
     }
 
     // ------------------------------------------------------------ start screen
@@ -68,7 +64,6 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private Role _startRole = Role.Display;
     public IReadOnlyList<Profile> Profiles { get; } = [Profile.WO7, Profile.WO6];
     public IReadOnlyList<Role> Roles { get; } = [Role.Display, Role.Production];
-    public string DetectedProfileText { get; }
 
     /// <summary>Decision D (Oct 2026): the old "Before you start" section, kept as a short note.</summary>
     public IReadOnlyList<string> HaveReady { get; } =

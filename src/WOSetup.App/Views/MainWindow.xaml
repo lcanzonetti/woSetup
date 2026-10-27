@@ -31,7 +31,6 @@
                     <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding StartProfile}" Width="200" HorizontalAlignment="Left" />
                     <TextBlock Margin="0,4,0,0" Foreground="#666" TextWrapping="Wrap"
                                Text="WO7 = WATCHOUT 7, WO6 = WATCHOUT 6. Locked after the first script run (Start over to change it)." />
-                    <TextBlock Margin="0,2,0,0" Foreground="#666" TextWrapping="Wrap" Text="{Binding DetectedProfileText}" />
 
                     <TextBlock Text="Role" Style="{StaticResource SectionLabel}" />
                     <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding StartRole}" Width="200" HorizontalAlignment="Left" />

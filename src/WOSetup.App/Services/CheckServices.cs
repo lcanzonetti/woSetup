@@ -233,39 +233,3 @@ public static class NativeChecks
     [DllImport("shcore.dll")]
     private static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
 }
-
-/// <summary>Guesses the profile for the start screen from what is installed. Only a suggestion.</summary>
-public static class ProfileDetector
-{
-    public static (Profile? Profile, string Text) Detect()
-    {
-        try
-        {
-            var names = new List<string>();
-            foreach (var root in new[] { @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" })
-            {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(root);
-                if (key is null) continue;
-                foreach (var sub in key.GetSubKeyNames())
-                {
-                    using var k = key.OpenSubKey(sub);
-                    if (k?.GetValue("DisplayName") is string n && n.Contains("WATCHOUT", StringComparison.OrdinalIgnoreCase))
-                        names.Add($"{n} {k.GetValue("DisplayVersion")}".Trim());
-                }
-            }
-            var wo6Exe = new[] { @"C:\WATCHOUT 6", @"D:\WATCHOUT 6", @"D:\WATCHOUT" }
-                .Any(d => File.Exists(Path.Combine(d, "WATCHPOINT.exe")) || File.Exists(Path.Combine(d, "WATCHMAKER.exe")));
-            // [Uncertain] the WATCHOUT 7 installer's program name and version format.
-            var has7 = names.Any(n => System.Text.RegularExpressions.Regex.IsMatch(n, @"\b7(\.|\b)"));
-            var has6 = wo6Exe || names.Any(n => System.Text.RegularExpressions.Regex.IsMatch(n, @"\b6(\.|\b)"));
-            if (has7 && !has6) return (Profile.WO7, $"Found {string.Join(", ", names)}: WATCHOUT 7 suggested.");
-            if (has6 && !has7) return (Profile.WO6, "WATCHOUT 6 found on this machine: WATCHOUT 6 suggested.");
-            if (has6 && has7) return (null, $"Both WATCHOUT 6 and 7 seem installed ({string.Join(", ", names)}). Choose the profile.");
-            return (null, "No WATCHOUT installation found (normal before section 5). Choose the profile.");
-        }
-        catch (Exception ex)
-        {
-            return (null, $"Could not look for WATCHOUT: {ex.Message}");
-        }
-    }
-}

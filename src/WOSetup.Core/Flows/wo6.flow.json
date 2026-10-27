@@ -249,8 +249,8 @@
         {
           "id": "WO6-02.2",
           "title": "RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas)",
-          "kind": "check",
-          "details": "Not applicable when the machine has no RAID controller.",
+          "kind": "manual",
+          "details": "pnputil /enum-drivers. Not applicable when the machine has no RAID controller.",
           "roles": [
             "Display",
             "Production"
@@ -261,14 +261,13 @@
           "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "raid-drivers"
+          "informational": false
         },
         {
           "id": "WO6-02.3",
           "title": "RAID management app installed",
           "kind": "manual",
-          "details": "RAIDXpert2 (AMD) or the Broadcom tool. Check by program name [Uncertain names].",
+          "details": "RAIDXpert2 (AMD) or the Broadcom tool.",
           "roles": [
             "Display",
             "Production"
@@ -276,11 +275,10 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": true,
+          "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "raid-mgmt-app"
+          "informational": false
         },
         {
           "id": "WO6-02.4",
@@ -592,7 +590,7 @@
           "id": "WO6-05.3",
           "title": "Key detected: CodeMeter Control Center shows the licence",
           "kind": "manual",
-          "details": "Check: the CodeMeter runtime service is running [Uncertain service name]. The licence itself you see in Control Center.",
+          "details": "",
           "roles": [
             "Display",
             "Production"
@@ -600,11 +598,10 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": true,
+          "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "codemeter-running"
+          "informational": false
         },
         {
           "id": "WO6-05.4",
@@ -628,7 +625,7 @@
           "id": "WO6-05.5",
           "title": "Auto-logon",
           "kind": "manual",
-          "details": "Not needed when the show account has no password. Otherwise netplwiz. Check: AutoAdminLogon set, or the account has no password [Uncertain detection].",
+          "details": "Not needed when the show account has no password. Otherwise netplwiz.",
           "roles": [
             "Display",
             "Production"
@@ -636,11 +633,10 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": true,
+          "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "auto-logon"
+          "informational": false
         },
         {
           "id": "WO6-05.6",
