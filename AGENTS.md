@@ -126,6 +126,14 @@ For each: show instructions, then run an automated **check** where one exists
 - Real changes can only be verified on a Windows 11 test machine or VM;
   never claim a tweak works without that. Note untested items in the PR.
 
+## Git workflow (owner's rule, Oct 2026)
+
+- Work on a branch, open a pull request, and **merge it into `main` yourself
+  as soon as CI is green**. Do not wait for the owner's review.
+- Never merge with red CI: fix the failure first (or, if it is not caused by
+  the change, say so on the PR and get CI green before merging).
+- After a merge, start the next change from the latest `main`.
+
 ## When unsure
 
 Ask the owner (freelance media-server operator, WATCHOUT 6/7 specialist)
