@@ -8,66 +8,80 @@ public enum Profile { WO7, WO6 }
 /// <summary>Display server or production (WATCHMAKER / Producer) PC; maps to the scripts' -Role.</summary>
 public enum Role { Display, Production }
 
-/// <summary>The three step types of the wizard (AGENTS.md: one class per step type).</summary>
-public enum StepKind { Manual, Check, Automated }
+/// <summary>The three step types (AGENTS.md: one class per step type).</summary>
+public enum StepKind { Automated, Manual, Check }
 
-/// <summary>Script phase a step runs. "Both" is only used by the final audit.</summary>
+/// <summary>Script phase. "Both" is only used by the final audit.</summary>
 public enum EnginePhase { PreUpdate, PostInstall, Both }
 
-/// <summary>A step that runs one of the setup scripts.</summary>
-public sealed class EngineAction
-{
-    public EnginePhase Phase { get; init; }
+public enum ActionType { Script, Restart, Command, Finish }
 
-    /// <summary>True: read-only audit (-Audit). False: the real run.</summary>
-    public bool Audit { get; init; }
+/// <summary>What an automated step does when the operator confirms.</summary>
+public sealed class StepAction
+{
+    public ActionType Type { get; init; }
+
+    /// <summary>Script phase, for Type = Script.</summary>
+    public EnginePhase? Phase { get; init; }
+
+    /// <summary>Command in Engine/WO-Actions.ps1, for Type = Command (e.g. "bitlocker-off").</summary>
+    public string? Name { get; init; }
 }
 
 /// <summary>
-/// One wizard step, generated from a row of docs/WIZARD_FLOW.md.
-/// The subclass says what kind of step it is; the fields are the row's
-/// columns plus a few flags the generator derives from them.
+/// One wizard step, defined in tools/flowgen/generate_flows.py. The subclass
+/// says who does the work; <see cref="Check"/> says how the wizard can tell
+/// that it is already done.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(AutomatedStep), "automated")]
 [JsonDerivedType(typeof(ManualStep), "manual")]
 [JsonDerivedType(typeof(CheckStep), "check")]
-[JsonDerivedType(typeof(AutomatedStep), "automated")]
 public abstract class StepDefinition
 {
     public required string Id { get; init; }
     public required string Title { get; init; }
 
-    /// <summary>Type column as written in WIZARD_FLOW (e.g. "M+C", "A 🔒").</summary>
-    public string TypeLabel { get; init; } = "";
-
-    /// <summary>"Uses / verification" column: commands, checks, notes.</summary>
+    /// <summary>Instructions, what the wizard does and how it checks.</summary>
     public string Details { get; init; } = "";
 
-    /// <summary>Reboot column as written in WIZARD_FLOW.</summary>
-    public string Reboot { get; init; } = "";
+    /// <summary>
+    /// Read-only test telling whether the step is already done: an id in
+    /// Engine/WO-Checks.ps1, a native check ("lgpo", "display-scale"), or
+    /// "audit:PreUpdate" / "audit:PostInstall" / "audit:Both" (the script's -Audit).
+    /// </summary>
+    public string? Check { get; init; }
+
+    public StepAction? Action { get; init; }
+
+    /// <summary>
+    /// Only needed when this other step is performed now (a restart after
+    /// PostInstall, reading its warnings). When that step is found already
+    /// done by a check, this one is marked not needed.
+    /// </summary>
+    public string? After { get; init; }
 
     public List<Role> Roles { get; init; } = [Role.Display, Role.Production];
-    public bool PreWindows { get; init; }
     public bool NeedsInternet { get; init; }
     public bool MustBeOffline { get; init; }
 
-    /// <summary>Security-reducing or destructive: needs an explicit confirmation (AGENTS.md rule 3).</summary>
+    /// <summary>Security-reducing or destructive: explicit confirmation (AGENTS.md rule 3).</summary>
     public bool Confirm { get; init; }
 
-    /// <summary>Finished only once the machine has really restarted.</summary>
-    public bool RebootStep { get; init; }
-
-    /// <summary>Completed by the wizard itself at start (profile choice, own folder).</summary>
-    public bool AutoDone { get; init; }
+    /// <summary>The step carries an [Uncertain] marker.</summary>
+    public bool Uncertain { get; init; }
 
     /// <summary>Opens the script options page.</summary>
     public bool OptionsStep { get; init; }
 
-    /// <summary>The row carries an [Uncertain] marker.</summary>
-    public bool Uncertain { get; init; }
+    /// <summary>Completed by the wizard itself at start.</summary>
+    public bool AutoDone { get; init; }
 
-    /// <summary>Set when the step runs a setup script phase.</summary>
-    public EngineAction? Engine { get; init; }
+    /// <summary>
+    /// A check step that is done once its check has run (the audit before
+    /// PostInstall: its job is to show what would change, not to pass).
+    /// </summary>
+    public bool Informational { get; init; }
 
     [JsonIgnore] public abstract StepKind Kind { get; }
 
@@ -75,24 +89,36 @@ public abstract class StepDefinition
     [JsonIgnore] public SectionDefinition Section { get; internal set; } = null!;
 
     public bool AppliesTo(Role role) => Roles.Contains(role);
+
+    [JsonIgnore] public bool HasCheck => !string.IsNullOrEmpty(Check);
+    [JsonIgnore] public bool IsAuditCheck => Check?.StartsWith("audit:", StringComparison.Ordinal) == true;
+
+    /// <summary>Phase of an "audit:..." check.</summary>
+    [JsonIgnore]
+    public EnginePhase? AuditPhase => IsAuditCheck && Enum.TryParse<EnginePhase>(Check!["audit:".Length..], out var p) ? p : null;
+
+    [JsonIgnore] public bool IsScriptRun => Action?.Type == ActionType.Script;
+    [JsonIgnore] public bool IsRestart => Action?.Type == ActionType.Restart;
+    [JsonIgnore] public bool IsCommand => Action?.Type == ActionType.Command;
+    [JsonIgnore] public bool IsFinish => Action?.Type == ActionType.Finish;
 }
 
-/// <summary>Instructions + "Mark done". The operator does it by hand.</summary>
+/// <summary>The wizard does it after the operator confirms.</summary>
+public sealed class AutomatedStep : StepDefinition
+{
+    [JsonIgnore] public override StepKind Kind => StepKind.Automated;
+}
+
+/// <summary>The operator does it, then confirms. A check, if any, verifies it.</summary>
 public sealed class ManualStep : StepDefinition
 {
     [JsonIgnore] public override StepKind Kind => StepKind.Manual;
 }
 
-/// <summary>Read-only verification. With <see cref="StepDefinition.Engine"/> set it is a script audit.</summary>
+/// <summary>Read-only verification only.</summary>
 public sealed class CheckStep : StepDefinition
 {
     [JsonIgnore] public override StepKind Kind => StepKind.Check;
-}
-
-/// <summary>The wizard changes the machine (script phase or a checklist command).</summary>
-public sealed class AutomatedStep : StepDefinition
-{
-    [JsonIgnore] public override StepKind Kind => StepKind.Automated;
 }
 
 public sealed class SectionDefinition
@@ -105,12 +131,7 @@ public sealed class SectionDefinition
     public required string Title { get; init; }
     public List<StepDefinition> Steps { get; init; } = [];
 
-    public string DisplayTitle => Number switch
-    {
-        0 => Title,
-        99 => Title,
-        _ => $"{Number}. {Title}",
-    };
+    public string DisplayTitle => Number is 0 or 99 ? Title : $"{Number}. {Title}";
 }
 
 public sealed class FlowDefinition
@@ -122,7 +143,7 @@ public sealed class FlowDefinition
     /// <summary>Script file name, e.g. WO7-Setup.ps1.</summary>
     public required string Script { get; init; }
 
-    public string ChecklistDate { get; init; } = "";
+    public string Checklist { get; init; } = "";
     public List<SectionDefinition> Sections { get; init; } = [];
 
     public IEnumerable<StepDefinition> AllSteps => Sections.SelectMany(s => s.Steps);

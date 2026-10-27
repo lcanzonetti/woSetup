@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profile": "WO7",
   "title": "WATCHOUT 7",
   "script": "WO7-Setup.ps1",
-  "checklistDate": "2026-10-14",
-  "generatedFrom": "docs/WIZARD_FLOW.md",
+  "checklist": "docs/checklists/WATCHOUT7-Server-Build-Checklist.md",
+  "generatedBy": "tools/flowgen/generate_flows.py",
   "sections": [
     {
       "id": "W-00",
@@ -13,1768 +13,1153 @@
       "steps": [
         {
           "id": "W-00.1",
-          "title": "Choose profile (WATCHOUT 7 / WATCHOUT 6) and role (Display / Production). Profile is locked after the first automated step.",
+          "title": "Choose profile (WATCHOUT 7 / WATCHOUT 6) and role (Display / Production)",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "",
-          "reboot": "",
+          "details": "Done on the start screen. The profile is locked after the first script run (Start over to change it).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": true,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": true,
+          "informational": false
         },
         {
           "id": "W-00.2",
-          "title": "LGPO.exe is bundled inside the wizard exe (decided OQ 3): verify the extracted copy's Microsoft signature and SHA-256.",
+          "title": "LGPO.exe available",
           "kind": "check",
-          "typeLabel": "C",
-          "details": "`Get-AuthenticodeSignature <path>`",
-          "reboot": "",
+          "details": "LGPO.exe writes the scripts' policies into the Local Group Policy, so they show in gpedit.msc. Bundled in the exe when built with it, otherwise put LGPO.exe next to WOSetupWizard.exe. Without it the scripts write the policies straight to the registry (User policies then reach only this account).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "lgpo"
         },
         {
           "id": "W-00.3",
-          "title": "Environment pre-flight: elevated; show account = elevated user; Windows PowerShell 5.1; no GPO-forced execution policy; OS = Windows 11 Pro 24H2/25H2.",
+          "title": "Pre-flight: administrator, Windows PowerShell 5.1, execution policy, Windows version",
           "kind": "check",
-          "typeLabel": "C",
-          "details": "ARCHITECTURE §10",
-          "reboot": "",
+          "details": "Read-only. Execution policy must not be forced by Group Policy (that would override -ExecutionPolicy Bypass).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "preflight"
         },
         {
           "id": "W-00.4",
-          "title": "Create `%ProgramData%\\WOSetupWizard` (state, logs). No copy of the exe, no scheduled task.",
+          "title": "Wizard folder %ProgramData%\\WOSetupWizard (state, logs)",
           "kind": "automated",
-          "typeLabel": "A",
-          "details": "ARCHITECTURE §7",
-          "reboot": "",
+          "details": "Created at start. Nothing is installed and nothing starts by itself: after every restart, start the exe again from the USB stick.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": true,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": true,
+          "informational": false
         },
         {
           "id": "W-00.5",
-          "title": "Record machine info into state/report: model, BIOS version and date, OS build.",
+          "title": "Record machine info (model, BIOS, Windows build)",
           "kind": "check",
-          "typeLabel": "C†",
-          "details": "`Get-CimInstance Win32_BIOS, Win32_ComputerSystem, Win32_OperatingSystem`",
-          "reboot": "",
+          "details": "For the build record and the support bundle.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "machine-info"
         }
       ]
     },
     {
       "id": "WO7-01",
       "number": 1,
-      "title": "Before you start",
+      "title": "First boot, still offline",
       "steps": [
         {
           "id": "WO7-01.1",
-          "title": "MicroWin installer USB (Windows 11 Pro), booted in UEFI mode",
+          "title": "Log in with the show account",
           "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Retro-check C†: firmware type UEFI — `$env:firmware_type` / `bcdedit /enum {current}` path ends in `winload.efi`",
-          "reboot": "",
+          "details": "The account the machine will run the show with (auto-logon account). The scripts write per-user settings to the account that runs them, so the wizard must run from it.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "show-account"
         },
         {
           "id": "WO7-01.2",
-          "title": "AMD RAID drivers rcbottom, rcraid, rccfg (.inf + .sys + .cat each) + AMD RAID package with RAIDXpert2",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "C†: operator picks the driver folder; wizard lists which of `rcbottom/rcraid/rccfg` have all three of `.inf`, `.sys`, `.cat` (file presence only)",
-          "reboot": "",
+          "title": "PreUpdate: driver search lockdown",
+          "kind": "automated",
+          "details": "Runs WO7-Setup.ps1 -Phase PreUpdate: SearchOrderConfig = 0, \"Do not include drivers with Windows Updates\", driver-search prompt off. Network cable must still be unplugged. Check: the script's audit.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
-          "mustBeOffline": false,
+          "mustBeOffline": true,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "audit:PreUpdate",
+          "action": {
+            "type": "script",
+            "phase": "PreUpdate"
+          }
         },
         {
           "id": "WO7-01.3",
-          "title": "NIC driver",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Folder captured for WO7-03.3",
-          "reboot": "",
+          "title": "Restart (cable still unplugged)",
+          "kind": "automated",
+          "details": "Restart after PreUpdate. Then start the wizard again from the USB stick.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
-          "mustBeOffline": false,
+          "mustBeOffline": true,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "action": {
+            "type": "restart"
+          },
+          "after": "WO7-01.2"
         },
         {
           "id": "WO7-01.4",
-          "title": "NVIDIA driver at the version in the WATCHOUT release notes, not \"latest\"",
+          "title": "Install the NIC driver from the USB stick",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "Capture: tested version (typed) → used by WO7-04.5",
-          "reboot": "",
+          "details": "pnputil /add-driver <path>\\*.inf /subdirs /install (elevated prompt), or the vendor's installer. Check: a physical network adapter is present and has no driver problem.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "nic-driver"
         },
         {
           "id": "WO7-01.5",
-          "title": "Chipset, capture and audio drivers",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "",
-          "reboot": "",
+          "title": "Network adapter shows without a warning icon",
+          "kind": "check",
+          "details": "Same as Device Manager (devmgmt.msc) without a warning icon.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "nic-driver"
         },
         {
           "id": "WO7-01.6",
-          "title": "WO7-Setup.ps1 and LGPO.exe in the same folder",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "Both are embedded in the wizard exe; W-00.2 verifies LGPO.exe",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-01.7",
-          "title": "BIOS: UEFI only (CSM off), Secure Boot as on last good build, Fast Boot off",
+          "title": "Plug in the network cable",
           "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Retro-check C†: `Confirm-SecureBootUEFI` → recorded, not judged (\"as on your last good build\"). CSM/Fast Boot not readable from Windows.",
-          "reboot": "",
+          "details": "Only now: driver search is locked. Check: a physical adapter has link.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-01.8",
-          "title": "BIOS: write down BIOS version and storage/RAID mode",
-          "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Version auto-recorded (W-00.5); RAID mode typed",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": true,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
           "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-01.9",
-          "title": "RAID utility: system volume (1 TB) first, then RAID0 media array",
-          "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Retro-check C†: `Get-Disk | Select Number, FriendlyName, Size, PartitionStyle, OperationalStatus` — shows two array disks, system volume holds C:. [Uncertain] how RAIDXpert2 arrays are named/numbered in `Get-Disk`.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": true,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": true
-        },
-        {
-          "id": "WO7-01.10",
-          "title": "No array shows Offline; if one does, delete and recreate",
-          "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Same retro-check: `OperationalStatus`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": true,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
+          "informational": false,
+          "check": "nic-link-up"
         }
       ]
     },
     {
       "id": "WO7-02",
       "number": 2,
-      "title": "Install Windows",
+      "title": "Updates and drivers",
       "steps": [
         {
           "id": "WO7-02.1",
-          "title": "Load driver: rcbottom → rcraid → rccfg",
+          "title": "Windows Update: install everything, restart, repeat until nothing is left",
           "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "",
-          "reboot": "",
+          "details": "Settings > Windows Update (ms-settings:windowsupdate). Driver updates are excluded by PreUpdate. Check: shows the last installed update and whether a restart is pending (it cannot tell if more updates exist).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
-          "needsInternet": false,
+          "needsInternet": true,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "updates"
         },
         {
           "id": "WO7-02.2",
-          "title": "Disk list shows the arrays, not member disks",
-          "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "",
-          "reboot": "",
+          "title": "AMD RAID drivers rcbottom, rcraid and rccfg all present",
+          "kind": "check",
+          "details": "pnputil /enum-drivers. Not applicable when the machine has no AMD RAID. rccfg is not always carried over from Windows Setup [Uncertain]: this is how you find out.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": true,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "amd-raid-drivers"
         },
         {
           "id": "WO7-02.3",
-          "title": "Shift+F10 → `diskpart` → `clean` system volume and RAID0",
+          "title": "Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup)",
           "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Guidance only (AGENTS.md rule 7)",
-          "reboot": "",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "raidxpert2"
         },
         {
           "id": "WO7-02.4",
-          "title": "Install to unallocated space on the system volume; leave RAID0 untouched",
+          "title": "Chipset and storage drivers",
           "kind": "manual",
-          "typeLabel": "M pre-Win",
           "details": "",
-          "reboot": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-02.5",
-          "title": "First reboot: \"Windows Boot Manager\" in the boot menu (F12 on Lenovo)",
+          "title": "NVIDIA driver at the version tested for your WATCHOUT release",
           "kind": "manual",
-          "typeLabel": "M pre-Win",
-          "details": "Retro-check C: `bcdedit /enum firmware` (checklist command). C†: which disk holds the FAT32 ESP: `Get-Partition | Where GptType -eq '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'`",
-          "reboot": "⟳ R0 (Windows Setup, outside the wizard)",
+          "details": "Check: an NVIDIA driver is installed and shows its version (compare it with the release notes).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": true,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "nvidia-driver"
         },
         {
           "id": "WO7-02.6",
-          "title": "If the boot entry is missing: `bcdboot W:\\Windows /s S: /f UEFI`, `bcdedit /enum firmware`",
+          "title": "Capture and audio drivers; test each in the vendor's own app",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "Shown as recovery text, never executed",
-          "reboot": "",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         }
       ]
     },
     {
       "id": "WO7-03",
       "number": 3,
-      "title": "First boot, still offline",
+      "title": "Disks",
       "steps": [
         {
           "id": "WO7-03.1",
-          "title": "Log in with the show (auto-logon) account",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C: W-00.3 identity check; records the show account SID (later checks)",
-          "reboot": "",
+          "title": "BitLocker / device encryption off",
+          "kind": "automated",
+          "details": "Windows 11 24H2+ turns on device encryption by default; a BIOS or RAID change can then lock the machine at a recovery-key prompt. Runs manage-bde -off C:. Decryption continues in the background; check again until it reports fully decrypted.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-03.2",
-          "title": "Elevated PowerShell: `.\\WO7-Setup.ps1 -Phase PreUpdate` (preceded by `-Audit`, S4)",
-          "kind": "automated",
-          "typeLabel": "A ✈",
-          "details": "Engine: WO7-Setup.ps1 -Phase PreUpdate (no other parameters). Pre-check C†: no physical adapter `Up` (`Get-NetAdapter -Physical`). Post-check C†: `SearchOrderConfig = 0` (`HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DriverSearching`), policies `ExcludeWUDriversInQualityUpdate = 1`, `DontPromptForWindowsUpdate = 1` read back.",
-          "reboot": "⟳ R0b (cable still unplugged; decided OQ 12)",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": true,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
+          "confirm": true,
           "uncertain": false,
-          "engine": {
-            "phase": "PreUpdate",
-            "audit": false
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "bitlocker-off",
+          "action": {
+            "type": "command",
+            "name": "bitlocker-off"
           }
         },
         {
-          "id": "WO7-03.2a",
-          "title": "Reboot (cable still unplugged)",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Checklist line added Oct 2026 (the script's \"Reboot now\" is right, OQ 12). Pre-check C†: still no physical adapter `Up`.",
-          "reboot": "⟳ R0b",
+          "id": "WO7-03.2",
+          "title": "Media drive: initialise GPT, format NTFS",
+          "kind": "automated",
+          "details": "You pick the disk: only disks that are not initialised (RAW, no partitions) are offered, never the system disk. One NTFS partition over the whole disk, 64 KB allocation unit optional. Asks you to type the disk number.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": true,
-          "autoDone": false,
+          "confirm": true,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "media-volume",
+          "action": {
+            "type": "command",
+            "name": "media-disk-init"
+          }
         },
         {
           "id": "WO7-03.3",
-          "title": "Install NIC driver from USB",
+          "title": "Indexing off on the media drive",
           "kind": "automated",
-          "typeLabel": "A",
-          "details": "Checklist command: `pnputil /add-driver <path>\\*.inf /subdirs /install` (operator picks `<path>`). Exit code `3010` = success, reboot required → offer reboot.",
-          "reboot": "⟳ only if pnputil returns 3010",
+          "details": "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C:.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "media-indexing-off",
+          "action": {
+            "type": "command",
+            "name": "indexing-off"
+          }
         },
         {
           "id": "WO7-03.4",
-          "title": "Adapter in Device Manager without warning icon",
+          "title": "RAIDXpert2: array healthy; write-back cache and read-ahead optional",
           "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "Open `devmgmt.msc`. C†: `Get-PnpDevice -Class Net -PresentOnly | Select FriendlyName, Status, Problem` → physical NIC `Status = OK`",
-          "reboot": "",
+          "details": "Check: Windows reports every disk online and healthy (RAIDXpert2 itself is the reference).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-03.5",
-          "title": "Plug in the network cable",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C†: adapter `Status = Up`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
           "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
+          "informational": false,
+          "check": "disks-healthy"
         }
       ]
     },
     {
       "id": "WO7-04",
       "number": 4,
-      "title": "Updates and drivers",
+      "title": "WinUtil debloat",
       "steps": [
         {
           "id": "WO7-04.1",
-          "title": "Windows Update: install everything, reboot, repeat until nothing is left",
+          "title": "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI",
           "kind": "manual",
-          "typeLabel": "M 🌐",
-          "details": "Open `ms-settings:windowsupdate`. C†: pending-reboot probe (ARCHITECTURE §7.3). The step loops: \"Reboot and come back\" / \"Nothing left — done\".",
-          "reboot": "⟳ R1 (repeated, operator-driven)",
+          "details": "Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local copy of winutil.ps1. Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive are harmless on a stripped install.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": true,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-04.2",
-          "title": "RAID: three AMD drivers present",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`pnputil /enum-drivers | findstr /i /c:\"rcbottom\" /c:\"rcraid\" /c:\"rccfg\"` → all three found. Not applicable if no AMD RAID (operator confirms). PROJECT_CONTEXT: `rccfg` may not be carried over from Setup [Uncertain] — this check is how you find out.",
-          "reboot": "",
+          "title": "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable",
+          "kind": "manual",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": true
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-04.3",
-          "title": "Install AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup)",
+          "title": "Skip: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in)",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "C†: show `rcraid` driver version from `Get-WindowsDriver -Online` before/after for comparison (display only)",
-          "reboot": "⟳ R2 if installer asks",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-04.4",
-          "title": "Chipset and storage drivers",
+          "title": "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "C† pending-reboot probe",
-          "reboot": "⟳ R2 if installer asks",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-04.5",
-          "title": "NVIDIA driver at the version tested for your WATCHOUT release",
+          "title": "Do NOT click either Ultimate Performance button (PostInstall makes its own \"WATCHOUT 7\" plan)",
           "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C†: `nvidia-smi --query-gpu=name,driver_version --format=csv,noheader` (or `Win32_VideoController.DriverVersion`) compared with the version captured in WO7-01.4",
-          "reboot": "⟳ R2 if installer asks",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-04.6",
-          "title": "Capture and audio drivers; test each in the vendor's app",
+          "title": "Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "",
-          "reboot": "⟳ R2 if installer asks",
+          "details": "The registry method is reportedly ignored on 24H2+ [Uncertain].",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": true,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         }
       ]
     },
     {
       "id": "WO7-05",
       "number": 5,
-      "title": "Disks",
+      "title": "WATCHOUT 7 and NVIDIA",
       "steps": [
         {
           "id": "WO7-05.1",
-          "title": "`manage-bde -status C:` → if not \"Fully Decrypted\" …",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "Shows `manage-bde -status C:`; evaluates `Get-BitLockerVolume -MountPoint C:` (`VolumeStatus = FullyDecrypted`) so it works on a localised Windows",
-          "reboot": "",
+          "title": "Install WATCHOUT 7",
+          "kind": "manual",
+          "details": "Check: a WATCHOUT 7 entry in the installed programs [Uncertain product name].",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": true,
           "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-05.1a",
-          "title": "… run `manage-bde -off C:` and wait",
-          "kind": "automated",
-          "typeLabel": "A 🔒",
-          "details": "Checklist command `manage-bde -off C:`; progress polled from `EncryptionPercentage` until FullyDecrypted. Shown only if 05.1 fails.",
-          "reboot": "No reboot needed",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": true,
-          "rebootStep": false,
           "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
+          "informational": false,
+          "check": "watchout-installed"
         },
         {
           "id": "WO7-05.2",
-          "title": "Disk Management: initialise RAID0 as GPT, format NTFS (64 KB optional)",
+          "title": "Folder on the RAID0, then Nodes > Node Properties > Change Working Directory to it",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "Open `diskmgmt.msc`. Never automated (AGENTS.md rule 7). C†: `Get-Disk` (`PartitionStyle = GPT`) + `Get-Volume` (`FileSystem = NTFS`, `AllocationUnitSize`) for the RAID0",
-          "reboot": "",
+          "details": "Done in WATCHOUT. Put the same folder in Options (-WorkingDirectory) so PostInstall's Defender exclusion and this check use it.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
+          "uncertain": false,
+          "optionsStep": true,
           "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
+          "informational": false,
+          "check": "wo7-workdir"
         },
         {
           "id": "WO7-05.3",
-          "title": "Turn off indexing on the RAID0 drive",
+          "title": "Auto-logon",
           "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C†: `Get-CimInstance Win32_Volume | Select DriveLetter, IndexingEnabled` → `False` for the RAID0",
-          "reboot": "",
+          "details": "Not needed when the show account has no password: Windows then signs in by itself. Otherwise netplwiz (checkbox missing > Settings > Accounts > Sign-in options > turn off \"only allow Windows Hello sign-in\"). Check: AutoAdminLogon set, or the account has no password [Uncertain detection].",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": true,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "auto-logon"
         },
         {
           "id": "WO7-05.4",
-          "title": "RAIDXpert2: array healthy; write-back cache / read-ahead optional",
+          "title": "NVIDIA Control Panel: global profile \"Workstation – Dynamic Streaming\"",
           "kind": "manual",
-          "typeLabel": "M",
           "details": "",
-          "reboot": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-05.5",
+          "title": "Then confirm Power Management Mode = Prefer Maximum Performance and Vertical Sync = Off",
+          "kind": "manual",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-05.6",
+          "title": "Static IPs on the show adapters; all nodes on one subnet",
+          "kind": "automated",
+          "details": "You enter IP / prefix (and gateway / DNS if needed) per connected adapter. Changing them resets the link. IGMP snooping or multicast forwarding for 239.2.2.2 on managed switches stays a switch setting.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": true,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "static-ip",
+          "action": {
+            "type": "command",
+            "name": "static-ip"
+          }
         }
       ]
     },
     {
       "id": "WO7-06",
       "number": 6,
-      "title": "WinUtil debloat",
+      "title": "Windows settings from the Dataton guide",
       "steps": [
         {
           "id": "WO7-06.1",
-          "title": "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI",
+          "title": "Startup apps: turn off everything not needed, above all anything that can steal focus (10.14)",
           "kind": "manual",
-          "typeLabel": "M (tick list)",
-          "details": "Capture: WinUtil version/date (typed)",
-          "reboot": "",
+          "details": "Settings > Apps > Startup (ms-settings:startupapps). UAC, visual effects, Remote Assistance, sounds, defrag schedule, USB notifications, badges, indexing and 96 DPI are applied by PostInstall and checked in section 8.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-06.2",
-          "title": "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable",
+          "title": "Display scale 100 % on every output (12.3)",
           "kind": "manual",
-          "typeLabel": "M (tick list)",
-          "details": "",
-          "reboot": "",
+          "details": "Settings > System > Display > Scale (ms-settings:display). PostInstall writes the 96 DPI values, but each display keeps its own scale.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "display-scale"
         },
         {
           "id": "WO7-06.3",
-          "title": "Skip: Edge removal, IPv6 disable, UTC time, O&O ShutUp10++, \"Disable all updates\"",
+          "title": "Network: each show adapter IPv4 only (10.10); keep Client for Microsoft Networks and File and Printer Sharing if you use network shares",
           "kind": "manual",
-          "typeLabel": "M (tick list)",
-          "details": "",
-          "reboot": "",
+          "details": "Open ncpa.cpl. Check: IPv6, QoS, LLTD, LLDP and Multiplexor unbound on every physical adapter.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "ipv4-only-bindings"
         },
         {
           "id": "WO7-06.4",
-          "title": "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off",
-          "kind": "manual",
-          "typeLabel": "M (tick list)",
-          "details": "",
-          "reboot": "",
+          "title": "Wake-on-LAN: NIC \"Wake on Magic Packet\" = Enabled (10.11)",
+          "kind": "automated",
+          "details": "Sets the adapter property on every physical adapter that has it. Wake-on-LAN in the BIOS stays manual.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "wol-magic-packet",
+          "action": {
+            "type": "command",
+            "name": "wol-enable"
+          }
         },
         {
           "id": "WO7-06.5",
-          "title": "Do NOT click either Ultimate Performance button",
+          "title": "Services: optionally disable Print Spooler, Fax and Bluetooth (11); never any WATCHOUT or Dataton service",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "",
-          "reboot": "",
+          "details": "WinUtil's \"Set to Manual\" covers the WATCHOUT 7 routine (services.msc).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
           "id": "WO7-06.6",
-          "title": "Multiplane Overlay: leave Enabled; disable only if soak test shows flicker/blackouts",
+          "title": "No auto-start task: WATCHOUT 7 runs as Windows services (13.1 not needed)",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "Note: registry method reportedly ignored on 24H2+ [Uncertain]",
-          "reboot": "",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": true
-        },
-        {
-          "id": "WO7-06.7",
-          "title": "(after WinUtil)",
-          "kind": "check",
-          "typeLabel": "C†",
-          "details": "Pending-reboot probe; the checklist specifies no reboot here",
-          "reboot": "⟳ only if pending",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
           "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-06.8",
-          "title": "Online launch used: unplug the cable again if the machine should stay offline",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Shown only if the cable was plugged in for this step",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
+          "informational": false
         }
       ]
     },
     {
       "id": "WO7-07",
       "number": 7,
-      "title": "WATCHOUT 7 and NVIDIA",
+      "title": "PostInstall",
       "steps": [
         {
           "id": "WO7-07.1",
-          "title": "Install WATCHOUT",
+          "title": "Windows Security > Virus & threat protection > Manage settings > Tamper Protection Off",
           "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C†: Uninstall entry `DisplayName -match 'WATCHOUT'` with `InstallLocation` (same lookup as the script's `Get-WatchoutInstallPath`) → pre-fills `-WatchoutPath`; version captured for the report.",
-          "reboot": "⟳ if installer asks",
+          "details": "Microsoft blocks scripting this. Needed only with -DefenderMode Off.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "tamper-off"
         },
         {
           "id": "WO7-07.2",
-          "title": "Folder on the RAID0, then Nodes → Node Properties → Change Working Directory",
+          "title": "Review the options (role, Defender, firewall, Windows Update, paths)",
           "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "Capture: the path → option `-WorkingDirectory`. C†: `Test-Path <path>`",
-          "reboot": "",
+          "details": "Options page: one option per script parameter, with the exact command line.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
+          "uncertain": false,
+          "optionsStep": true,
           "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
+          "informational": false,
+          "after": "WO7-07.4"
         },
         {
           "id": "WO7-07.3",
-          "title": "Auto-logon with `netplwiz` (missing checkbox → turn off \"only allow Windows Hello sign-in\")",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "Open `netplwiz`, `ms-settings:signinoptions`. C†: `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon` `AutoAdminLogon = 1`, `DefaultUserName = <show account>` (password never read)",
-          "reboot": "",
+          "title": "Audit before applying (read-only): what PostInstall would change",
+          "kind": "check",
+          "details": "Runs the script with -Audit and the same options: every item is Set, Not set or N/A. Nothing is changed.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": true,
+          "check": "audit:PostInstall"
         },
         {
           "id": "WO7-07.4",
-          "title": "NVIDIA Control Panel: global profile \"Workstation – Dynamic Streaming\"",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "",
-          "reboot": "",
+          "title": "PostInstall: power, network, policies, update freeze, Windows settings, Defender",
+          "kind": "automated",
+          "details": "Runs WO7-Setup.ps1 -Phase PostInstall with the options. Security-reducing: asks you to type APPLY. Check: the script's audit.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "confirm": true,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "check": "audit:PostInstall",
+          "action": {
+            "type": "script",
+            "phase": "PostInstall"
+          }
         },
         {
           "id": "WO7-07.5",
-          "title": "Confirm Power Management Mode = Prefer Maximum Performance, Vertical Sync = Off",
+          "title": "Read the warnings; fix and run again if needed (safe to repeat)",
           "kind": "manual",
-          "typeLabel": "M",
           "details": "",
-          "reboot": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "after": "WO7-07.4"
         },
         {
           "id": "WO7-07.6",
-          "title": "Static IPs; one subnet; IGMP snooping / multicast forwarding for 239.2.2.2",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C†: physical adapters with `Get-NetIPInterface -AddressFamily IPv4` `Dhcp = Disabled`, IPv4 address and prefix listed (switch config cannot be checked)",
-          "reboot": "",
+          "title": "Restart",
+          "kind": "automated",
+          "details": "Then start the wizard again from the USB stick.",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "action": {
+            "type": "restart"
+          },
+          "after": "WO7-07.4"
         }
       ]
     },
     {
       "id": "WO7-08",
       "number": 8,
-      "title": "Windows settings from the Dataton guide",
-      "steps": [
-        {
-          "id": "WO7-08.1",
-          "title": "UAC → Never notify (10.8)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `UserAccountControlSettings.exe`. C†: `HKLM\\…\\Policies\\System` `ConsentPromptBehaviorAdmin = 0`, `PromptOnSecureDesktop = 0` (the values the WO6 script uses for \"Never notify\")",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.2",
-          "title": "Visual effects → Adjust for best performance (10.3; skip if ticked in WinUtil)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `SystemPropertiesPerformance.exe`. C†: `HKCU\\…\\Explorer\\VisualEffects` `VisualFXSetting = 2`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.3",
-          "title": "Remote Assistance off (10.4)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `SystemPropertiesRemote.exe`. C†: `HKLM\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance` `fAllowToGetHelp = 0`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.4",
-          "title": "Sounds → \"No Sounds\" (10.7)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `mmsys.cpl`. C†: `HKCU\\AppEvents\\Schemes` default = `.None`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.5",
-          "title": "`dfrgui` → untick \"Run on a schedule\" (10.9)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `dfrgui`. C†: `Get-ScheduledTask -TaskPath '\\Microsoft\\Windows\\Defrag\\' -TaskName ScheduledDefrag` → `Disabled`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.6",
-          "title": "USB: connection and USB-issue notifications off (10.12)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `ms-settings:usb`. C†: `HKCU\\Software\\Microsoft\\Shell\\USB` `NotifyOnUsbErrors = 0` [Uncertain value name]",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": true
-        },
-        {
-          "id": "WO7-08.7",
-          "title": "Taskbar: show badges off (10.13)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "Open `ms-settings:taskbar`. C†: `HKCU\\…\\Explorer\\Advanced` `TaskbarBadges = 0`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.8",
-          "title": "Startup apps: off for everything not needed (10.14)",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Open `ms-settings:startupapps`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.9",
-          "title": "Indexing off on every drive (10.15)",
-          "kind": "check",
-          "typeLabel": "C (after ⟳ R3)",
-          "details": "PostInstall disables the Windows Search service (S1). C: `Get-Service WSearch` → `StartType = Disabled`. C† (informational): `Win32_Volume.IndexingEnabled` per fixed volume",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.10",
-          "title": "Display scale 100 % on every output (12.3)",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "PostInstall also writes `Win8DpiScaling = 1`, `LogPixels = 96` (S1; system DPI only [Uncertain] for multi-display). Open `ms-settings:display`. C†: per-monitor DPI = 96 (`GetDpiForMonitor`, app is PerMonitorV2-aware)",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": true
-        },
-        {
-          "id": "WO7-08.11",
-          "title": "`ncpa.cpl` → each show adapter: everything except IPv4 unticked; keep Client for MS Networks / File and Printer Sharing for shares (10.10)",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "Open `ncpa.cpl`. C†: `Get-NetAdapterBinding` per physical adapter — list what is still enabled (informational: the checklist allows exceptions)",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.12",
-          "title": "Wake-on-LAN: BIOS + NIC \"Wake on Magic Packet\" = Enabled (10.11)",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "C†: `Get-NetAdapterAdvancedProperty` matching \"Wake on Magic Packet\" (display name is vendor-specific)",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.16",
-          "title": "Services: WinUtil \"Set to Manual\" covers it; optionally disable Print Spooler, Fax, Bluetooth; never any WATCHOUT/Dataton service",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Open `services.msc`. Not automated for WO7.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-08.17",
-          "title": "No auto-start task (WATCHOUT 7 runs as services; 13.1 not needed)",
-          "kind": "manual",
-          "typeLabel": "M (info)",
-          "details": "",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        }
-      ]
-    },
-    {
-      "id": "WO7-09",
-      "number": 9,
-      "title": "PostInstall",
-      "steps": [
-        {
-          "id": "WO7-09.1",
-          "title": "Windows Security → Manage settings → Tamper Protection Off",
-          "kind": "manual",
-          "typeLabel": "M+C",
-          "details": "Open Windows Security (`windowsdefender://threatsettings` [Uncertain URI on 25H2]). C: `Get-MpComputerStatus | Select IsTamperProtected` → `False`. Required only for `-DefenderMode Off`.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": true
-        },
-        {
-          "id": "WO7-09.2",
-          "title": "Options (checklist option table)",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Options page (MILESTONES M4): `-Role`, `-DefenderMode`, `-KeepFirewall`, `-PinVersion`, `-KeepUpdateService`, `-WatchoutPath`, `-WorkingDirectory`. Shows the exact command line.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": true,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-09.2a",
-          "title": "Audit before applying: `WO7-Setup.ps1 -Phase PostInstall -Audit` with the same options → each item Set / Not Set",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "Read-only (decided OQ 10; script change S4). Feeds the confirmation summary: only \"Not Set\" items will change.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false,
-          "engine": {
-            "phase": "PostInstall",
-            "audit": true
-          }
-        },
-        {
-          "id": "WO7-09.3",
-          "title": "Elevated, from the show account: `.\\WO7-Setup.ps1 -Phase PostInstall`",
-          "kind": "automated",
-          "typeLabel": "A 🔒",
-          "details": "Engine: WO7-Setup.ps1 -Phase PostInstall + options. Pre-checks: show account = elevated user; Tamper Protection (if Off mode); LGPO.exe. Confirmation summary (ARCHITECTURE §4.5).",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": true,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false,
-          "engine": {
-            "phase": "PostInstall",
-            "audit": false
-          }
-        },
-        {
-          "id": "WO7-09.4",
-          "title": "Read the warnings summary; fix and re-run if needed (safe to repeat)",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "Parsed `[WARN]` lines vs \"Completed with N warning(s)\". Re-run = same step, same options (banner if options changed: earlier changes are not undone).",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-09.5",
-          "title": "Reboot",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "",
-          "reboot": "⟳ R3",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": true,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        }
-      ]
-    },
-    {
-      "id": "WO7-10",
-      "number": 10,
       "title": "Verify, soak test, image",
       "steps": [
         {
-          "id": "WO7-10.1",
-          "title": "Defender",
+          "id": "WO7-08.1",
+          "title": "Defender off (or exclusions present with -DefenderMode Exclusions)",
           "kind": "check",
-          "typeLabel": "C",
-          "details": "`Get-MpComputerStatus | Select IsTamperProtected, RealTimeProtectionEnabled, BehaviorMonitorEnabled, OnAccessProtectionEnabled` → all False (Off mode). Exclusions mode: real-time stays on → expectation shown as \"Exclusions present\": `Get-MpPreference | Select ExclusionPath, ExclusionProcess`. Skip mode: NotApplicable.",
-          "reboot": "",
+          "details": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.2",
-          "title": "Power plan",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`powercfg /getactivescheme` → \"WATCHOUT 7\" (matched by GUID `6f1c2a10-7a3e-4b0e-9d1a-0a0b0c0d0e57`)",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.3",
-          "title": "BitLocker",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`manage-bde -status C:` → Protection Off (evaluated via `Get-BitLockerVolume`)",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.3a",
-          "title": "Update services still disabled after the reboot (the script asks for this re-check: WaaSMedicSvc may re-enable `wuauserv`)",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`Get-Service BITS, wuauserv, UsoSvc | Select Name, StartType` → `Disabled`. NotApplicable with `-KeepUpdateService`. Source: script comment, not a checklist line.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.3b",
-          "title": "Registry: `TdrDelay = 15`, `TdrDdiDelay = 60` (12.2)",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`reg query \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers\" /v TdrDelay` and `/v TdrDdiDelay`. Moved from §8 to here (decided OQ 13; checklist updated).",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.3c",
-          "title": "Registry: `SystemResponsiveness = 10` (12.1; guide says 5; values < 10 reportedly treated as 10 [Uncertain])",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`reg query \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\" /v SystemResponsiveness`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": true
-        },
-        {
-          "id": "WO7-10.3d",
-          "title": "Registry (Production only): `Win32PrioritySeparation = 40` (0x28) (12.3)",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "`reg query \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl\" /v Win32PrioritySeparation`; NotApplicable for Display",
-          "reboot": "",
-          "roles": [
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.3e",
-          "title": "Full audit after the reboot: `WO7-Setup.ps1 -Phase PostInstall -Audit` (and `-Phase PreUpdate -Audit`) → every item Set",
-          "kind": "check",
-          "typeLabel": "C",
-          "details": "Read-only (S4). Any \"Not Set\" is listed as a warning in the report.",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
           "uncertain": false,
-          "engine": {
-            "phase": "Both",
-            "audit": true
-          }
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "defender-off"
         },
         {
-          "id": "WO7-10.4",
+          "id": "WO7-08.2",
+          "title": "Power plan \"WATCHOUT 7\" active",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "power-plan"
+        },
+        {
+          "id": "WO7-08.3",
+          "title": "BitLocker protection off",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "bitlocker-off"
+        },
+        {
+          "id": "WO7-08.4",
+          "title": "Update services still disabled (WaaSMedicSvc can re-enable wuauserv)",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": true,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "update-services-disabled"
+        },
+        {
+          "id": "WO7-08.5",
+          "title": "GPU timeouts TdrDelay = 15, TdrDdiDelay = 60 (12.2)",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "reg-tdr"
+        },
+        {
+          "id": "WO7-08.6",
+          "title": "SystemResponsiveness = 10 (12.1; values under 10 reportedly treated as 10 [Uncertain])",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": true,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "reg-sysresp"
+        },
+        {
+          "id": "WO7-08.7",
+          "title": "Production PC: Win32PrioritySeparation = 40 (0x28) (12.3)",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "reg-priosep"
+        },
+        {
+          "id": "WO7-08.8",
+          "title": "Performance Options: \"Adjust for best performance\", every effect unticked (10.3)",
+          "kind": "manual",
+          "details": "Open SystemPropertiesPerformance.exe once and look. UserPreferencesMask is [Uncertain].",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": true,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "visual-effects"
+        },
+        {
+          "id": "WO7-08.9",
+          "title": "USB notifications off (10.12)",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": true,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "usb-notify-off"
+        },
+        {
+          "id": "WO7-08.10",
+          "title": "Windows Search service disabled: no indexing (10.15)",
+          "kind": "check",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "wsearch-disabled"
+        },
+        {
+          "id": "WO7-08.11",
+          "title": "Full audit: both script phases report every item Set",
+          "kind": "check",
+          "details": "Read-only. Anything Not set is listed.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "audit:Both"
+        },
+        {
+          "id": "WO7-08.12",
           "title": "All nodes discover each other; asset transfer to the RAID0 works",
           "kind": "manual",
-          "typeLabel": "M",
           "details": "",
-          "reboot": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
         },
         {
-          "id": "WO7-10.5",
-          "title": "Optional: `secpol.msc` → Network List Manager Policies → User cannot change location",
+          "id": "WO7-08.13",
+          "title": "Optional: secpol.msc > Network List Manager Policies > User cannot change location",
           "kind": "manual",
-          "typeLabel": "M",
-          "details": "Open `secpol.msc`",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.6",
-          "title": "Soak test: representative show, several hours, all outputs",
-          "kind": "manual",
-          "typeLabel": "M",
-          "details": "Optional recorder (OQ 9)",
-          "reboot": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "preWindows": false,
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
-          "optionsStep": false,
-          "uncertain": false
-        },
-        {
-          "id": "WO7-10.7",
-          "title": "Image the system disk",
-          "kind": "manual",
-          "typeLabel": "M",
           "details": "",
-          "reboot": "",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.14",
+          "title": "Soak test: representative show for several hours on all outputs",
+          "kind": "manual",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.15",
+          "title": "Image the system disk (System Restore is off; the image is your rollback)",
+          "kind": "manual",
+          "details": "",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
         }
       ]
     },
@@ -1785,23 +1170,23 @@
       "steps": [
         {
           "id": "W-99",
-          "title": "Finish: mark the build complete, generate report, offer support bundle",
+          "title": "Finish the build",
           "kind": "automated",
-          "typeLabel": "A",
-          "details": "ARCHITECTURE §8",
-          "reboot": "",
+          "details": "Marks the build complete and offers the support bundle (state, logs, every script run).",
           "roles": [
             "Display",
             "Production"
           ],
-          "preWindows": false,
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "rebootStep": false,
-          "autoDone": false,
+          "uncertain": false,
           "optionsStep": false,
-          "uncertain": false
+          "autoDone": false,
+          "informational": false,
+          "action": {
+            "type": "finish"
+          }
         }
       ]
     }

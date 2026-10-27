@@ -21,6 +21,9 @@
     <EmbeddedResource Include="..\..\scripts\WO7-Setup.ps1" LogicalName="engine/WO7-Setup.ps1" />
     <EmbeddedResource Include="..\..\scripts\WO6-Setup.ps1" LogicalName="engine/WO6-Setup.ps1" />
     <EmbeddedResource Include="Engine\Invoke-WOEngine.ps1" LogicalName="engine/Invoke-WOEngine.ps1" />
+    <!-- Wizard helpers: read-only checks and the actions the owner approved (Oct 2026). -->
+    <EmbeddedResource Include="Engine\WO-Checks.ps1" LogicalName="engine/WO-Checks.ps1" />
+    <EmbeddedResource Include="Engine\WO-Actions.ps1" LogicalName="engine/WO-Actions.ps1" />
     <!-- LGPO.exe is bundled when present at build time (decided OPEN_QUESTIONS 3).
          It is not in git: put it in third_party/LGPO/ before building. Without
          it, the wizard uses an LGPO.exe placed next to the wizard exe, or the

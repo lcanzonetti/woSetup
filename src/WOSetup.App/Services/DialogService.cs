@@ -1,6 +1,7 @@
 using System.Windows;
 using Microsoft.Win32;
 using WOSetup.App.Views;
+using WOSetup.Core.Actions;
 
 namespace WOSetup.App.Services;
 
@@ -12,6 +13,18 @@ public interface IDialogService
 
     /// <summary>Asks for a short text (e.g. a reason). Null when cancelled; empty input is refused.</summary>
     string? Prompt(string title, string message);
+
+    /// <summary>Buttons in a row; returns the index pressed, -1 when the window is closed.</summary>
+    int Choose(string title, string intro, IReadOnlyList<string> lines, IReadOnlyList<string> buttons);
+
+    /// <summary>Tick several items; null when cancelled.</summary>
+    IReadOnlyList<string>? PickMany(string title, string intro, IReadOnlyList<(string Id, string Text)> items, string okText);
+
+    /// <summary>Disk and format settings for the media drive; null when cancelled.</summary>
+    (DiskInfo Disk, MediaDiskInput Input)? PickMediaDisk(IReadOnlyList<DiskInfo> disks);
+
+    /// <summary>Static addresses for the ticked adapters; null when cancelled.</summary>
+    IReadOnlyList<StaticIpEntry>? EditStaticIps(IReadOnlyList<AdapterInfo> adapters);
 
     void Info(string title, string message);
     void Error(string title, string message);
@@ -32,6 +45,30 @@ public sealed class DialogService : IDialogService
     {
         var dlg = new PromptWindow(title, message) { Owner = Owner };
         return dlg.ShowDialog() == true ? dlg.Answer : null;
+    }
+
+    public int Choose(string title, string intro, IReadOnlyList<string> lines, IReadOnlyList<string> buttons)
+    {
+        var dlg = new ChoiceWindow(title, intro, lines, buttons) { Owner = Owner };
+        return dlg.ShowDialog() == true ? dlg.Choice : -1;
+    }
+
+    public IReadOnlyList<string>? PickMany(string title, string intro, IReadOnlyList<(string Id, string Text)> items, string okText)
+    {
+        var dlg = new PickManyWindow(title, intro, items, okText) { Owner = Owner };
+        return dlg.ShowDialog() == true ? dlg.Selected : null;
+    }
+
+    public (DiskInfo Disk, MediaDiskInput Input)? PickMediaDisk(IReadOnlyList<DiskInfo> disks)
+    {
+        var dlg = new DiskPickerWindow(disks) { Owner = Owner };
+        return dlg.ShowDialog() == true && dlg.Result is { } r && dlg.Disk is { } d ? (d, r) : null;
+    }
+
+    public IReadOnlyList<StaticIpEntry>? EditStaticIps(IReadOnlyList<AdapterInfo> adapters)
+    {
+        var dlg = new StaticIpWindow(adapters) { Owner = Owner };
+        return dlg.ShowDialog() == true ? dlg.Result : null;
     }
 
     public void Info(string title, string message) => Show(title, message, MessageBoxImage.Information);

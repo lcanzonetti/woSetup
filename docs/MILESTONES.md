@@ -25,20 +25,30 @@ those stay "not verified" until HW runs.
 
 ## Status (27 Oct 2026)
 
-Version 0.1 delivers **M1** and the core of **M2** and **M4** together, so the
-owner can test the scripts from the GUI:
+**Version 0.2 – "check and do" redesign** (owner request after testing 0.1):
 
-- Done in code: solution layout, both flows generated from WIZARD_FLOW, state
-  file (atomic, `.bak` fallback, schema check), resume on next start, restart
-  confirmation, single instance, wizard.log; script runner with wrapper, live
-  log, result file, warnings, backups (baseline), audits, confirmation summary
-  with typed `APPLY`, cancel; options page for every parameter with command
-  preview; support bundle; Start over. 58 unit tests (Core), CI on Windows.
-- Not yet: automatic checks (M3), checklist commands `pnputil` /
-  `manage-bde` (M3), pre-flight show-account / execution-policy checks (M2),
-  restore actions and options profiles (M4), report (M5).
-- **Not yet run on Windows.** Built and unit-tested on Linux; the UI and the
-  script runs need the owner's test on a Windows 11 VM.
+- The checklists and the wizard start at "First boot": the old sections
+  "Before you start" (now a short note on the start screen) and "Install
+  Windows" are gone; the wizard runs on a machine where Windows is installed.
+- Every checkable step has a check (WO-Checks.ps1, two native checks, the
+  scripts' audits). **Check this machine** marks what is already done and
+  jumps to what is missing; manual steps without a check can be ticked in
+  one list. **Fix what's missing** walks the open steps in order: automatic
+  steps after a confirmation, manual steps wait for the operator.
+- New automatic steps (owner, Oct 2026): BitLocker off, media drive
+  initialise + format, indexing off on the data drives, static IPs, Wake on
+  Magic Packet (WO-Actions.ps1). Windows Update, drivers, NVIDIA driver,
+  WinUtil, NVIDIA Control Panel, WATCHOUT install and startup apps stay
+  manual, with checks where Windows can tell.
+- This covers most of **M3** (checks) and the checklist commands; restore
+  actions and options profiles (M4) and the report (M5) are still open.
+- **Not yet run on Windows.** The checks and actions are new PowerShell
+  written without a test machine; CI only parse-checks them. Every check
+  and action needs the owner's test on a Windows 11 VM (and the [Uncertain]
+  ones on real hardware, OPEN_QUESTIONS 25).
+
+Version 0.1 (same day) delivered M1 and the core of M2 and M4: state, resume,
+script runner with live log and audits, options page, support bundle.
 
 ## M1 — Skeleton, state, resume
 

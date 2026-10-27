@@ -4,33 +4,11 @@ Oct 23, 2026 · @Lorenzo
 
 Tick each box in order on every WATCHOUT 6 display server or production PC: Windows 11 Pro 64-bit 25H2 (MicroWin), WO6-Setup.ps1 for the full Dataton tweaking guide. WATCHOUT 6 has no official Windows 11 certification, though Dataton reports it works on Windows 11 Pro; if a machine is unstable, Dataton suggests Windows 11 IoT Enterprise LTSC.
 
-## 1. Before you start
+## Before you start
 
-- [ ] MicroWin installer USB (Windows 11 Pro 64-bit 25H2), booted in UEFI mode
-- [ ] WATCHOUT 6 installer, same version on every machine in the system
-- [ ] WATCHOUT licence key (USB) for this machine; the production PC needs one too
-- [ ] RAID drivers (AMD: rcbottom, rcraid, rccfg; Broadcom MegaRAID: one driver, e.g. megasas35) and the RAID management app
-- [ ] NIC driver
-- [ ] NVIDIA driver at a version tested with your WATCHOUT 6 release (see release notes and Dataton KB)
-- [ ] Chipset, capture and audio drivers (capture cards need Windows 11 drivers)
-- [ ] WO6-Setup.ps1 and LGPO.exe in the same folder
-- [ ] BIOS: UEFI boot only (CSM off), Fast Boot off, Secure Boot as on your last good build
-- [ ] BIOS: write down the BIOS version and storage/RAID mode settings
-- [ ] RAID utility: create the system volume FIRST, then the media array; no array shows Offline
-- [ ] Plan a separate drive or partition for WATCHOUT and its Shows folder (guide ch. 1 and 9)
+This checklist starts on a machine where Windows is already installed, with a local account named for the show (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2). Have ready on the USB stick: the setup wizard (or WO6-Setup.ps1 + LGPO.exe), the WATCHOUT 6 installer (same version on every machine), the licence key for this machine, the NIC driver, the RAID management app, chipset/capture/audio drivers (Windows 11 versions) and the NVIDIA driver at a version tested with your WATCHOUT 6 release. Plan a separate drive or partition for WATCHOUT and its Shows folder (guide ch. 1 and 9).
 
-## 2. Install Windows
-
-In RAID mode, never touch a disk in Setup before the RAID drivers are loaded: writing to a raw member disk can corrupt the array metadata and take the array offline.
-
-- [ ] Load driver: AMD in the order rcbottom, rcraid, rccfg; Broadcom: the single MegaRAID driver
-- [ ] The disk list shows the arrays, not individual member disks
-- [ ] Shift+F10 → `diskpart` → `clean` the system volume and the media array
-- [ ] Install to the unallocated space on the system volume; leave the media array untouched
-- [ ] Local account named for the show (it becomes the auto-logon account)
-- [ ] First reboot: "Windows Boot Manager" appears in the boot menu
-
-## 3. First boot, still offline
+## 1. First boot, still offline
 
 The Dataton guide wants the machine offline during setup. Keep the cable unplugged until driver search is locked.
 
@@ -41,7 +19,7 @@ The Dataton guide wants the machine offline during setup. Keep the cable unplugg
 - [ ] Adapter shows in Device Manager without a warning icon
 - [ ] Plug in the network cable
 
-## 4. Updates and drivers
+## 2. Updates and drivers
 
 The 2018 guide installs only hand-picked updates; on a 25H2 base, install the current cumulative update once, then freeze.
 
@@ -52,7 +30,7 @@ The 2018 guide installs only hand-picked updates; on a 25H2 base, install the cu
 - [ ] Capture and audio drivers; test each card in its vendor app before WATCHOUT
 - [ ] Unplug the network cable again if the machine will stay offline (guide ch. 8: most security features end up disabled)
 
-## 5. Disks
+## 3. Disks
 
 WATCHOUT 6 keeps transferred shows and media in a "Shows" folder inside its install folder; put the install on the media drive, or move Shows there with `-ShowsPath`.
 
@@ -61,7 +39,7 @@ WATCHOUT 6 keeps transferred shows and media in a "Shows" folder inside its inst
 - [ ] Decide: install WATCHOUT on the media drive (e.g. `D:\WATCHOUT 6`), or default `C:\WATCHOUT 6` + a Shows folder on the media drive
 - [ ] RAID management app: array healthy
 
-## 6. WinUtil debloat
+## 4. WinUtil debloat
 
 Same selection as the WATCHOUT 7 build; it covers the guide's chapters 4–6 (hibernation, app removal, OneDrive). Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and `$Env:OneDrive` are harmless.
 
@@ -72,9 +50,9 @@ Same selection as the WATCHOUT 7 build; it covers the guide's chapters 4–6 (hi
 - [ ] Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan)
 - [ ] Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
 
-## 7. WATCHOUT 6, licence and NVIDIA
+## 5. WATCHOUT 6, licence and NVIDIA
 
-- [ ] Install WATCHOUT 6 to the folder chosen in section 5
+- [ ] Install WATCHOUT 6 to the folder chosen in section 3
 - [ ] Plug in the licence key directly (no USB hub; rear ports preferred)
 - [ ] Key detected: open CodeMeter Control Center and check the licence appears (runtime normally installed with WATCHOUT)
 - [ ] Do NOT create a Startup-folder shortcut to WATCHPOINT: PostInstall creates the auto-start task (a shortcut too would start it twice)
@@ -84,7 +62,7 @@ Same selection as the WATCHOUT 7 build; it covers the guide's chapters 4–6 (hi
 - [ ] Production PC: Settings → Bluetooth & devices → Mouse → "Scroll inactive windows when hovering over them" Off
 - [ ] Network: fixed IPs (or access display computers by name), one subnet, no Wi-Fi for show traffic
 
-## 8. PostInstall
+## 6. PostInstall
 
 Applies the whole tweaking guide that Windows 11 still honours: chapter 7 GPOs, chapter 10 settings, chapter 11 services, chapter 12 registry and chapter 13 tasks, plus power, NIC, notifications, Windows Update fully disabled, and Defender.
 
@@ -121,7 +99,7 @@ Applies the whole tweaking guide that Windows 11 still honours: chapter 7 GPOs, 
 | `-ForcePcieLinkSpeed` | AMD GPU only; can crash some AMD drivers at boot |
 | `-WatchoutPath`, `-PinVersion` | Install not auto-detected / pin a different version |
 
-## 9. Manual steps
+## 7. Manual steps
 
 The guide items no script can set reliably.
 
@@ -133,7 +111,7 @@ The guide items no script can set reliably.
 - [ ] After the reboot, open Performance Options once and confirm "Adjust for best performance" is selected (10.3)
 - [ ] Settings → Bluetooth & devices → USB: notifications off (10.12)
 
-## 10. Verify, soak test, image
+## 8. Verify, soak test, image
 
 - [ ] Reboot → auto-logon → WATCHPOINT starts full screen on its own
 - [ ] Task Scheduler → WATCHOUT → "WATCHPOINT auto-start": last result 0x41301 (running) and no time limit
@@ -145,7 +123,7 @@ The guide items no script can set reliably.
 - [ ] Soak test: representative show for several hours on all outputs
 - [ ] Image the system disk (System Restore is off; the image is your rollback)
 
-## 11. Maintenance
+## 9. Maintenance
 
 - [ ] No in-place updates: Windows Update is disabled for good. To move to a newer Windows, reinstall from a newer ISO and rebuild with this checklist. Check activation with `slmgr /xpr` (the Settings Activation page errors with updates disabled)
 - [ ] NVIDIA: update only to versions tested with your WATCHOUT 6 release

@@ -1,3 +1,4 @@
+using WOSetup.Core.Checks;
 using WOSetup.Core.Flow;
 using WOSetup.Core.Options;
 using WOSetup.Core.Scripts;
@@ -68,7 +69,26 @@ public sealed class WizardSession
         Save();
     }
 
-    public void MarkDone(string id, string? note = null) => Set(id, StepStatus.Done, note);
+    public void MarkDone(string id, string? note = null)
+    {
+        State.Step(id).Detected = false;
+        Set(id, StepStatus.Done, note);
+    }
+
+    /// <summary>Operator confirms several manual steps at once (e.g. done in the past, no check exists).</summary>
+    public void MarkManyDone(IEnumerable<string> ids, string note)
+    {
+        var now = _clock();
+        foreach (var id in ids)
+        {
+            var s = State.Step(id);
+            s.Status = StepStatus.Done;
+            s.Detected = false;
+            s.Note = note;
+            s.UpdatedAt = now;
+        }
+        Save();
+    }
 
     public void Skip(string id, string reason)
     {
@@ -87,6 +107,7 @@ public sealed class WizardSession
         if (State.PendingReboot?.StepId == id) State.PendingReboot = null;
         var s = State.Step(id);
         s.Warnings.Clear();
+        s.Detected = false;
         Set(id, StepStatus.NotStarted, null);
     }
 
@@ -147,6 +168,19 @@ public sealed class WizardSession
         Set(stepId, StepStatus.InProgress, null);
     }
 
+    /// <summary>
+    /// A read-only audit run used as a check: recorded in the run history,
+    /// but it does not change the step's status (the check result does).
+    /// </summary>
+    public void BeginAudit(string stepId, RunRecord run)
+    {
+        run.StepId = stepId;
+        run.Audit = true;
+        State.Runs.Add(run);
+        if (Flow.Find(stepId) is not null) State.Step(stepId).RunIds.Add(run.RunId);
+        Save();
+    }
+
     /// <summary>Records one finished script run (an audit of both phases calls this twice).</summary>
     public void RecordRun(RunRecord run, EngineResult? result, StepStatus outcome, IReadOnlyList<string> warnings)
     {
@@ -178,6 +212,7 @@ public sealed class WizardSession
     {
         var s = State.Step(stepId);
         s.Warnings = [.. warnings];
+        s.Detected = false;
         Set(stepId, outcome, null);
     }
 
@@ -251,9 +286,136 @@ public sealed class WizardSession
         return p.StepId;
     }
 
+    // ---------------------------------------------------------------- checks
+
+    internal const string NotNeededPrefix = "Not needed: ";
+    internal const string FoundDonePrefix = "Found done by the check";
+
+    /// <summary>
+    /// Stores a check result and updates the step's status (decision B, Oct
+    /// 2026: steps found done are marked done so the wizard jumps to what is
+    /// missing). Rules:
+    /// - Done: the step becomes Done ("found done") unless it is already final.
+    ///   An informational check is Done whenever it ran.
+    /// - Not done: a step that was Done or Done with warnings becomes Not done,
+    ///   because the machine no longer matches (AGENTS.md rule 2, never pretend).
+    ///   Skipped and Not applicable stay: those are the operator's decisions.
+    /// - Not applicable: an open step becomes Not applicable with the reason.
+    /// - Can't check: only the detail is stored.
+    /// A step that is running or waiting for a restart is never changed.
+    /// Call <see cref="ApplyAfterRules"/> (or use <see cref="ApplyChecks"/>) afterwards.
+    /// </summary>
+    public void ApplyCheck(string stepId, CheckResult result, bool save = true)
+    {
+        var step = Flow.Find(stepId) ?? throw new ArgumentException($"Unknown step {stepId}");
+        var s = State.Step(stepId);
+        var now = _clock();
+        var state = result.State;
+        if (step.Informational && state is CheckState.NotDone) state = CheckState.Done;
+        s.CheckState = state;
+        s.CheckDetail = result.Detail;
+        s.CheckedAt = now;
+
+        if (s.Status is StepStatus.InProgress or StepStatus.AwaitingReboot || (s.Note == RoleNote && s.Status == StepStatus.NotApplicable))
+        {
+            if (save) Save();
+            return;
+        }
+
+        switch (state)
+        {
+            case CheckState.Done when !IsFinal(s.Status):
+                s.Status = StepStatus.Done;
+                s.Detected = true;
+                s.Note = $"{FoundDonePrefix}: {result.Detail}";
+                s.UpdatedAt = now;
+                break;
+            case CheckState.NotDone when s.Status is StepStatus.Done or StepStatus.DoneWithWarnings
+                                                  or StepStatus.NotStarted or StepStatus.Interrupted:
+                s.Status = StepStatus.NotDone;
+                s.Detected = false;
+                s.Note = result.Detail;
+                s.UpdatedAt = now;
+                break;
+            case CheckState.NotDone when s.Status == StepStatus.NotDone:
+                s.Note = result.Detail;
+                break;
+            case CheckState.NotApplicable when !IsFinal(s.Status):
+                s.Status = StepStatus.NotApplicable;
+                s.Detected = true;
+                s.Note = result.Detail;
+                s.UpdatedAt = now;
+                break;
+        }
+        if (save) Save();
+    }
+
+    /// <summary>Applies a batch of results, then the "after" rules; saves once.</summary>
+    public void ApplyChecks(IEnumerable<CheckResult> results)
+    {
+        foreach (var r in results) ApplyCheck(r.Id, r, save: false);
+        ApplyAfterRules(save: false);
+        Save();
+    }
+
+    /// <summary>
+    /// A step with "after X" (restart after PostInstall, read its warnings) is
+    /// only needed when X is performed now. If X was found already done by a
+    /// check, the step is marked not needed; if X is open again, it comes back.
+    /// </summary>
+    public void ApplyAfterRules(bool save = true)
+    {
+        var now = _clock();
+        foreach (var step in Flow.AllSteps.Where(x => x.After is not null))
+        {
+            var s = State.Step(step.Id);
+            var target = State.Step(step.After!);
+            var targetFound = target.Status == StepStatus.Done && target.Detected;
+            if (targetFound && s.Status is StepStatus.NotStarted or StepStatus.NotDone or StepStatus.Interrupted)
+            {
+                s.Status = StepStatus.NotApplicable;
+                s.Note = $"{NotNeededPrefix}{step.After} was found already done.";
+                s.UpdatedAt = now;
+            }
+            else if (!targetFound && s.Status == StepStatus.NotApplicable && s.Note?.StartsWith(NotNeededPrefix, StringComparison.Ordinal) == true)
+            {
+                s.Status = StepStatus.NotStarted;
+                s.Note = null;
+                s.UpdatedAt = now;
+            }
+        }
+        if (save) Save();
+    }
+
+    /// <summary>Steps still open (not done, not skipped, not applicable), in checklist order.</summary>
+    public IReadOnlyList<StepDefinition> MissingSteps() =>
+        Flow.AllSteps.Where(s => !IsFinal(State.StatusOf(s.Id)) && !s.IsFinish).ToList();
+
+    /// <summary>Open steps that have no check: only the operator can say whether they were done.</summary>
+    public IReadOnlyList<StepDefinition> UncheckableOpenSteps() =>
+        MissingSteps().Where(s => !s.HasCheck && s.Kind == StepKind.Manual).ToList();
+
+    /// <summary>Summary of the last "Check this machine".</summary>
+    public ScanSummary Summarize(IReadOnlyCollection<CheckResult> results)
+    {
+        var missing = MissingSteps();
+        return new ScanSummary(
+            Checked: results.Count,
+            FoundDone: results.Count(r => State.Step(r.Id) is { Detected: true, Status: StepStatus.Done }),
+            NotDone: results.Count(r => State.StatusOf(r.Id) == StepStatus.NotDone),
+            CantCheck: results.Count(r => r.State == CheckState.CantCheck),
+            Missing: missing.Count,
+            Unverifiable: UncheckableOpenSteps().Count,
+            FirstMissing: missing.FirstOrDefault()?.Id);
+    }
+
     public void Finish(string stepId)
     {
         State.FinishedAt = _clock();
         Set(stepId, StepStatus.Done, null);
     }
 }
+
+/// <summary>Counts shown after "Check this machine".</summary>
+public sealed record ScanSummary(int Checked, int FoundDone, int NotDone, int CantCheck, int Missing,
+                                 int Unverifiable, string? FirstMissing);

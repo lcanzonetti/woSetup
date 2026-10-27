@@ -4,34 +4,11 @@ Oct 14, 2026 · @Lorenzo
 
 Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (MicroWin), AMD RAID system and media arrays, WO7-Setup.ps1 for driver lockdown and the Dataton GPO set. Written for WATCHOUT 7.8.4 and Windows 11 25H2.
 
-## 1. Before you start
+## Before you start
 
-Prepare a USB stick with everything below, then set up the BIOS and arrays.
+This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the AMD RAID package with RAIDXpert2, chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
 
-- [ ] MicroWin installer USB (Windows 11 Pro), booted in UEFI mode
-- [ ] AMD RAID drivers: rcbottom, rcraid, rccfg (.inf + .sys + .cat each), plus the AMD RAID package with RAIDXpert2
-- [ ] NIC driver
-- [ ] NVIDIA driver at the version listed in the WATCHOUT release notes, not "latest"
-- [ ] Chipset, capture and audio drivers
-- [ ] WO7-Setup.ps1 and LGPO.exe in the same folder
-- [ ] BIOS: UEFI boot only (CSM off), Secure Boot as on your last good build, Fast Boot off
-- [ ] BIOS: write down the BIOS version and storage/RAID mode settings
-- [ ] RAID utility: create the system volume (1 TB) FIRST, then the RAID0 media array
-- [ ] RAID utility: check no array shows as Offline; if one does, delete and recreate it
-
-## 2. Install Windows
-
-In RAID mode, never touch a disk in Setup before the RAID drivers are loaded: writing to a raw member disk can corrupt the array metadata and take the array offline.
-
-- [ ] At the disk screen, **Load driver** in this order: rcbottom, then rcraid, then rccfg
-- [ ] Confirm the disk list shows the arrays (system volume + one large RAID0 disk), not individual member disks
-- [ ] Shift+F10 → `diskpart` → `clean` the system volume and the RAID0 to remove old partitions and ESPs
-- [ ] Install to the unallocated space on the system volume; leave the RAID0 untouched
-- [ ] First reboot: "Windows Boot Manager" appears in the boot menu (F12 on Lenovo)
-
-If the boot entry is missing: check in diskpart that the FAT32 "System" partition is on the system volume, then run `bcdboot W:\Windows /s S: /f UEFI` and `bcdedit /enum firmware`.
-
-## 3. First boot, still offline
+## 1. First boot, still offline
 
 Keep the network cable unplugged until driver search is locked, or Windows Update may install its own GPU and chipset drivers.
 
@@ -42,7 +19,7 @@ Keep the network cable unplugged until driver search is locked, or Windows Updat
 - [ ] Check the adapter in Device Manager (no warning icon)
 - [ ] Plug in the network cable
 
-## 4. Updates and drivers
+## 2. Updates and drivers
 
 - [ ] Windows Update: install everything, reboot, repeat until nothing is left
 - [ ] RAID: `pnputil /enum-drivers | findstr /i /c:"rcbottom" /c:"rcraid" /c:"rccfg"` shows all three
@@ -51,7 +28,7 @@ Keep the network cable unplugged until driver search is locked, or Windows Updat
 - [ ] NVIDIA driver at the version tested for your WATCHOUT release
 - [ ] Capture and audio drivers; test each in the vendor's own app
 
-## 5. Disks
+## 3. Disks
 
 Windows 11 24H2 and later turn on device encryption by default; a BIOS or RAID change can then lock the machine at a recovery-key prompt.
 
@@ -60,7 +37,7 @@ Windows 11 24H2 and later turn on device encryption by default; a BIOS or RAID c
 - [ ] Turn off indexing on the RAID0 drive
 - [ ] RAIDXpert2: array healthy; write-back cache and read-ahead optional
 
-## 6. WinUtil debloat
+## 4. WinUtil debloat
 
 Run after updates and drivers, before WATCHOUT. Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and `$Env:OneDrive` are harmless on a stripped install.
 
@@ -71,7 +48,7 @@ Run after updates and drivers, before WATCHOUT. Errors about wermgr, PeriodInNan
 - [ ] Do NOT click either Ultimate Performance button (PostInstall makes its own plan)
 - [ ] Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
 
-## 7. WATCHOUT 7 and NVIDIA
+## 5. WATCHOUT 7 and NVIDIA
 
 - [ ] Install WATCHOUT
 - [ ] Create a folder on the RAID0, then Nodes → Node Properties → **Change Working Directory** to it
@@ -80,11 +57,11 @@ Run after updates and drivers, before WATCHOUT. Errors about wermgr, PeriodInNan
 - [ ] Then confirm Power Management Mode = Prefer Maximum Performance and Vertical Sync = Off
 - [ ] Network: static IPs; all nodes on one subnet; IGMP snooping or multicast forwarding for 239.2.2.2 on managed switches
 
-## 8. Windows settings from the Dataton guide
+## 6. Windows settings from the Dataton guide
 
 The guide's chapters 10–13 adapted to Windows 11 and WATCHOUT 7. Guide section numbers in brackets.
 
-Applied by PostInstall (section 9), same as the WATCHOUT 6 script: UAC never notify (10.8), visual effects "Adjust for best performance" (10.3), Remote Assistance off (10.4), sound scheme "No Sounds" (10.7), scheduled disk optimisation off (10.9), USB notifications off (10.12), taskbar badges off (10.13), indexing off by disabling the Windows Search service (10.15), and 100 % / 96 DPI values (12.3). They are checked after the reboot in section 10.
+Applied by PostInstall (section 7), same as the WATCHOUT 6 script: UAC never notify (10.8), visual effects "Adjust for best performance" (10.3), Remote Assistance off (10.4), sound scheme "No Sounds" (10.7), scheduled disk optimisation off (10.9), USB notifications off (10.12), taskbar badges off (10.13), indexing off by disabling the Windows Search service (10.15), and 100 % / 96 DPI values (12.3). They are checked after the reboot in section 8.
 
 ### Settings (manual)
 
@@ -93,7 +70,7 @@ Applied by PostInstall (section 9), same as the WATCHOUT 6 script: UAC never not
 - [ ] Network: `ncpa.cpl` → each show adapter → untick everything except IPv4 (10.10); keep Client for Microsoft Networks and File and Printer Sharing if you use network shares
 - [ ] Wake-on-LAN: enable it in the BIOS and set the NIC's "Wake on Magic Packet" advanced property to Enabled (10.11)
 
-The chapter 12 registry values (TdrDelay, TdrDdiDelay, SystemResponsiveness, Win32PrioritySeparation) are applied by PostInstall and checked in section 10.
+The chapter 12 registry values (TdrDelay, TdrDdiDelay, SystemResponsiveness, Win32PrioritySeparation) are applied by PostInstall and checked in section 8.
 
 Skip from the guide: DirectShow ThreadPriority (WATCHOUT 6 DirectShow playback), ForcePcieLinkSpeed (2018 AMD GPU / X99 workaround), HideAutoLogonUI (Windows Embedded key, likely no effect on Pro).
 
@@ -102,11 +79,11 @@ Skip from the guide: DirectShow ThreadPriority (WATCHOUT 6 DirectShow playback),
 - [ ] Services: WinUtil's "Set to Manual" covers the WATCHOUT 7 routine; optionally disable Print Spooler, Fax and Bluetooth services (11). Never disable any WATCHOUT or Dataton service (Windows Update is disabled by PostInstall)
 - [ ] No auto-start task: WATCHOUT 7 runs as Windows services, so the guide's WATCHPOINT logon task (13.1) is not needed
 
-Already handled elsewhere: group policies (ch. 7), AutoPlay (10.1), power plan and USB selective suspend (10.5), PCIe link power management (AMD equivalent of 10.6) and hibernation by PostInstall; apps, OneDrive and Cortana by WinUtil; auto-logon (10.2) in section 7.
+Already handled elsewhere: group policies (ch. 7), AutoPlay (10.1), power plan and USB selective suspend (10.5), PCIe link power management (AMD equivalent of 10.6) and hibernation by PostInstall; apps, OneDrive and Cortana by WinUtil; auto-logon (10.2) in section 5.
 
-## 9. PostInstall
+## 7. PostInstall
 
-Applies power plan, NIC power settings, network location, notifications, the chapter 10 settings and indexing off (section 8), the Dataton chapter 7 GPO set (Win11-adapted), the update freeze (automatic updates off, version pinned, notifications off, update services and tasks disabled), the chapter 12 registry values and Defender settings.
+Applies power plan, NIC power settings, network location, notifications, the chapter 10 settings and indexing off (section 6), the Dataton chapter 7 GPO set (Win11-adapted), the update freeze (automatic updates off, version pinned, notifications off, update services and tasks disabled), the chapter 12 registry values and Defender settings.
 
 - [ ] Windows Security → Virus & threat protection → Manage settings → **Tamper Protection Off**
 - [ ] Elevated, from the show account: `.\WO7-Setup.ps1 -Phase PostInstall`
@@ -122,7 +99,7 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 | -PinVersion 25H2 | Pin to a version other than the one installed (default: installed version) |
 | -KeepUpdateService | Keep the Windows Update services and tasks running (default: fully disabled, as WinUtil's "Disable all updates") |
 
-## 10. Verify, soak test, image
+## 8. Verify, soak test, image
 
 - [ ] `Get-MpComputerStatus | Select IsTamperProtected, RealTimeProtectionEnabled, BehaviorMonitorEnabled, OnAccessProtectionEnabled` → all False (Off mode)
 - [ ] `powercfg /getactivescheme` → "WATCHOUT 7"
@@ -138,7 +115,7 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 - [ ] Soak test: representative show for several hours on all outputs
 - [ ] Image the system disk (System Restore is off; the image is your rollback)
 
-## 11. Maintenance
+## 9. Maintenance
 
 - [ ] No in-place updates: Windows Update is disabled for good. To move to a newer Windows, reinstall from a newer ISO and rebuild with this checklist. Check activation with `slmgr /xpr` (the Settings Activation page errors with updates disabled)
 - [ ] NVIDIA: update only to versions tested for your WATCHOUT release

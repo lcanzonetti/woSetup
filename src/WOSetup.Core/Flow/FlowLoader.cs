@@ -41,7 +41,8 @@ public static class FlowValidator
     public static IReadOnlyList<string> Validate(FlowDefinition flow)
     {
         var errors = new List<string>();
-        var ids = flow.AllSteps.Select(s => s.Id).ToList();
+        var steps = flow.AllSteps.ToList();
+        var ids = steps.Select(s => s.Id).ToList();
         foreach (var dup in ids.GroupBy(i => i).Where(g => g.Count() > 1))
             errors.Add($"Duplicate step id {dup.Key}");
 
@@ -50,29 +51,30 @@ public static class FlowValidator
             if (flow.Sections[i].Number <= flow.Sections[i - 1].Number)
                 errors.Add($"Section {flow.Sections[i].Id} is out of order");
 
-        foreach (var step in flow.AllSteps)
+        foreach (var s in steps)
         {
-            if (string.IsNullOrWhiteSpace(step.Title)) errors.Add($"{step.Id}: empty title");
-            if (step.Roles.Count == 0) errors.Add($"{step.Id}: applies to no role");
-            if (step.RebootStep && step.Kind != StepKind.Manual) errors.Add($"{step.Id}: reboot steps must be manual");
-            if (step.Engine is { Audit: false } && step.Kind != StepKind.Automated)
-                errors.Add($"{step.Id}: a real script run must be an automated step");
-            if (step.Engine is { Audit: true } && step.Kind != StepKind.Check)
-                errors.Add($"{step.Id}: an audit must be a check step");
-            if (step.Engine is { Audit: false, Phase: EnginePhase.Both })
-                errors.Add($"{step.Id}: only audits can cover both phases");
+            if (string.IsNullOrWhiteSpace(s.Title)) errors.Add($"{s.Id}: empty title");
+            if (s.Roles.Count == 0) errors.Add($"{s.Id}: applies to no role");
+            if (s.Kind == StepKind.Automated && s.Action is null && !s.AutoDone) errors.Add($"{s.Id}: automated step without an action");
+            if (s.Kind != StepKind.Automated && s.Action is not null) errors.Add($"{s.Id}: only automated steps have an action");
+            if (s.Kind == StepKind.Check && !s.HasCheck) errors.Add($"{s.Id}: check step without a check");
+            if (s.IsAuditCheck && s.AuditPhase is null) errors.Add($"{s.Id}: unknown audit '{s.Check}'");
+            if (s.IsScriptRun && s.Action!.Phase is not (EnginePhase.PreUpdate or EnginePhase.PostInstall))
+                errors.Add($"{s.Id}: a script run needs PreUpdate or PostInstall");
+            if (s.IsCommand && string.IsNullOrWhiteSpace(s.Action!.Name)) errors.Add($"{s.Id}: command without a name");
+            if (s.After is not null && !ids.Contains(s.After)) errors.Add($"{s.Id}: 'after' points to unknown step {s.After}");
         }
 
-        // Each profile must contain exactly one real run of each phase.
+        // Exactly one real run of each phase.
         foreach (var phase in new[] { EnginePhase.PreUpdate, EnginePhase.PostInstall })
         {
-            var n = flow.AllSteps.Count(s => s.Engine is { Audit: false } e && e.Phase == phase);
+            var n = steps.Count(s => s.IsScriptRun && s.Action!.Phase == phase);
             if (n != 1) errors.Add($"Expected one {phase} run step, found {n}");
         }
 
-        // PreUpdate must come before PostInstall (AGENTS.md rule 1).
-        var pre = ids.FindIndex(id => flow.Find(id)!.Engine is { Audit: false, Phase: EnginePhase.PreUpdate });
-        var post = ids.FindIndex(id => flow.Find(id)!.Engine is { Audit: false, Phase: EnginePhase.PostInstall });
+        // PreUpdate before PostInstall (AGENTS.md rule 1).
+        var pre = steps.FindIndex(s => s.IsScriptRun && s.Action!.Phase == EnginePhase.PreUpdate);
+        var post = steps.FindIndex(s => s.IsScriptRun && s.Action!.Phase == EnginePhase.PostInstall);
         if (pre >= 0 && post >= 0 && pre > post) errors.Add("PreUpdate comes after PostInstall");
         return errors;
     }

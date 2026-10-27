@@ -13,6 +13,9 @@ public sealed record RunFolder(
     string Path, string ScriptPath, string WrapperPath, string ParamsPath, string ResultPath,
     string StdoutPath, string StderrPath, string ScriptSha256, string LgpoSource);
 
+/// <summary>Files of one helper-script run (checks or a wizard action).</summary>
+public sealed record HelperFolder(string Path, string ScriptPath, string ParamsPath, string ResultPath, string StdoutPath, string StderrPath);
+
 /// <summary>
 /// Prepares a run folder: the scripts look for LGPO.exe next to themselves
 /// and write their transcript and backups there (ARCHITECTURE §6.1), so each
@@ -50,6 +53,26 @@ public sealed class EngineWorkspace(AppPaths paths)
             System.IO.Path.Combine(dir, "stdout.log"), System.IO.Path.Combine(dir, "stderr.log"),
             Sha256(scriptPath), LgpoSource);
     }
+
+    /// <summary>
+    /// Folder for one run of a wizard helper script (Engine/WO-Checks.ps1 or
+    /// Engine/WO-Actions.ps1), next to the setup-script runs.
+    /// </summary>
+    public HelperFolder CreateHelper(WizardState state, string helperScript, string label, DateTimeOffset now)
+    {
+        var name = $"{now:yyyyMMdd_HHmmss}_{label}";
+        var runs = System.IO.Path.Combine(paths.MachineLogs(state), "runs");
+        var dir = System.IO.Path.Combine(runs, name);
+        for (var i = 2; Directory.Exists(dir); i++) dir = System.IO.Path.Combine(runs, $"{name}_{i}");
+        Directory.CreateDirectory(dir);
+        var script = Extract($"engine/{helperScript}", dir, helperScript);
+        return new HelperFolder(dir, script, System.IO.Path.Combine(dir, "params.json"), System.IO.Path.Combine(dir, "result.json"),
+            System.IO.Path.Combine(dir, "stdout.log"), System.IO.Path.Combine(dir, "stderr.log"));
+    }
+
+    /// <summary>Writes any object as UTF-8 JSON (helper script input).</summary>
+    public static void WriteJson(string path, object value) =>
+        File.WriteAllText(path, JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
 
     /// <summary>Writes the parameters in order, as one JSON object read by the wrapper.</summary>
     public static void WriteParams(RunFolder folder, IEnumerable<KeyValuePair<string, object>> parameters)
@@ -94,8 +117,18 @@ public sealed class PowerShellRunner
 
     public static bool Available => File.Exists(PowerShellPath);
 
-    /// <summary>Returns the exit code, or null when cancelled.</summary>
-    public async Task<int?> RunAsync(RunFolder f, Action<string, bool> onLine, CancellationToken ct)
+    /// <summary>Setup script through the wrapper. Returns the exit code, or null when cancelled.</summary>
+    public Task<int?> RunAsync(RunFolder f, Action<string, bool> onLine, CancellationToken ct) =>
+        RunFileAsync(f.Path, f.WrapperPath, ["-Script", f.ScriptPath, "-ParamsJson", f.ParamsPath],
+                     f.StdoutPath, f.StderrPath, onLine, ct);
+
+    /// <summary>Helper script (WO-Checks.ps1 / WO-Actions.ps1) with its own arguments.</summary>
+    public Task<int?> RunHelperAsync(HelperFolder f, IEnumerable<string> args, Action<string, bool> onLine, CancellationToken ct) =>
+        RunFileAsync(f.Path, f.ScriptPath, args, f.StdoutPath, f.StderrPath, onLine, ct);
+
+    private static async Task<int?> RunFileAsync(string workDir, string file, IEnumerable<string> args,
+                                                 string stdoutPath, string stderrPath,
+                                                 Action<string, bool> onLine, CancellationToken ct)
     {
         var utf8 = new UTF8Encoding(false);
         var psi = new ProcessStartInfo(PowerShellPath)
@@ -104,16 +137,15 @@ public sealed class PowerShellRunner
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
-            WorkingDirectory = f.Path,
+            WorkingDirectory = workDir,
             StandardOutputEncoding = utf8,
             StandardErrorEncoding = utf8,
         };
-        foreach (var a in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                                  "-File", f.WrapperPath, "-Script", f.ScriptPath, "-ParamsJson", f.ParamsPath })
+        foreach (var a in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file }.Concat(args))
             psi.ArgumentList.Add(a);
 
-        using var stdout = new StreamWriter(f.StdoutPath, append: false, utf8) { AutoFlush = true };
-        using var stderr = new StreamWriter(f.StderrPath, append: false, utf8) { AutoFlush = true };
+        using var stdout = new StreamWriter(stdoutPath, append: false, utf8) { AutoFlush = true };
+        using var stderr = new StreamWriter(stderrPath, append: false, utf8) { AutoFlush = true };
         using var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, e) =>
         {

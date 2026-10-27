@@ -41,12 +41,18 @@ public sealed class JsonStateStore(string path)
         return new StateLoadResult(null, null, $"state.json could not be read: {error}");
     }
 
-    private static StateLoadResult CheckVersion(WizardState state, string? warning) =>
-        state.SchemaVersion > WizardState.CurrentSchemaVersion
-            ? new StateLoadResult(null, null,
+    private static StateLoadResult CheckVersion(WizardState state, string? warning)
+    {
+        if (state.SchemaVersion > WizardState.CurrentSchemaVersion)
+            return new StateLoadResult(null, null,
                 $"state.json was written by a newer version of the wizard (state schema {state.SchemaVersion}, " +
-                $"this version reads up to {WizardState.CurrentSchemaVersion}). Use the newer wizard exe.")
-            : new StateLoadResult(state, warning, null);
+                $"this version reads up to {WizardState.CurrentSchemaVersion}). Use the newer wizard exe.");
+        if (state.SchemaVersion < WizardState.CurrentSchemaVersion)
+            return new StateLoadResult(null, null,
+                $"state.json was written by an older version of the wizard (state schema {state.SchemaVersion}) " +
+                "with a different step list, so it cannot be continued.");
+        return new StateLoadResult(state, warning, null);
+    }
 
     private static (WizardState?, string?) TryRead(string file)
     {

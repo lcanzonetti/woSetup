@@ -13,12 +13,25 @@
                 <StackPanel>
                     <TextBlock Text="WATCHOUT Server Setup Wizard" FontSize="22" FontWeight="SemiBold" />
                     <TextBlock Margin="0,6,0,18" TextWrapping="Wrap" Foreground="#555"
-                               Text="Prepares a WATCHOUT 6 or WATCHOUT 7 display server or production PC on Windows 11 Pro, following the build checklist step by step. Nothing is installed: after every restart, start this exe again from the USB stick and it continues where you left off." />
+                               Text="Prepares a WATCHOUT 6 or WATCHOUT 7 display server or production PC on Windows 11 Pro. It checks what is already in place, does the automatic steps after you confirm, and waits for you on the manual ones. Nothing is installed: after every restart, start this exe again from the USB stick and it continues where you left off." />
+
+                    <TextBlock Text="Have these ready" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding HaveReady}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,0,0,3">
+                                    <TextBlock Text="•" DockPanel.Dock="Left" Margin="0,0,6,0" Foreground="#555" />
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#555" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <TextBlock Text="Profile" Style="{StaticResource SectionLabel}" />
                     <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding StartProfile}" Width="200" HorizontalAlignment="Left" />
                     <TextBlock Margin="0,4,0,0" Foreground="#666" TextWrapping="Wrap"
                                Text="WO7 = WATCHOUT 7, WO6 = WATCHOUT 6. Locked after the first script run (Start over to change it)." />
+                    <TextBlock Margin="0,2,0,0" Foreground="#666" TextWrapping="Wrap" Text="{Binding DetectedProfileText}" />
 
                     <TextBlock Text="Role" Style="{StaticResource SectionLabel}" />
                     <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding StartRole}" Width="200" HorizontalAlignment="Left" />
@@ -32,7 +45,12 @@
                         <Run Text="State and logs: " /><Run Text="{Binding DataFolder, Mode=OneWay}" />
                     </TextBlock>
 
-                    <Button Content="Start" Command="{Binding StartCommand}" HorizontalAlignment="Left" Margin="0,20,0,0" MinWidth="130" />
+                    <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                        <Button Content="Start and check this machine" Command="{Binding StartAndCheckCommand}" FontWeight="SemiBold" MinWidth="130" />
+                        <Button Content="Start" Command="{Binding StartCommand}" MinWidth="110" />
+                    </StackPanel>
+                    <TextBlock Foreground="#666" TextWrapping="Wrap"
+                               Text="&quot;Start and check&quot; runs every read-only check first (about a minute): use it on a machine that is already partly or fully prepared, also by hand. Steps found done are marked done." />
                 </StackPanel>
             </Border>
         </Grid>
@@ -44,6 +62,12 @@
             <Border DockPanel.Dock="Top" Background="#1F2A36" Padding="14,10">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="Check this machine" Command="{Binding CheckMachineCommand}" Margin="0,0,6,0" FontWeight="SemiBold"
+                                ToolTip="Runs every read-only check, marks what is already done and jumps to what is missing. Changes nothing." />
+                        <Button Content="Fix what's missing" Command="{Binding FixMissingCommand}" Margin="0,0,6,0" FontWeight="SemiBold"
+                                ToolTip="Walks every open step in checklist order: automatic steps after your confirmation, manual steps wait for you." />
+                        <Button Content="Manual steps done…" Command="{Binding ConfirmManualStepsCommand}" Margin="0,0,6,0"
+                                ToolTip="Tick manual steps without a check that were already done on this machine." />
                         <Button Content="Current step" Command="{Binding GoToCurrentCommand}" Margin="0,0,6,0" />
                         <Button Content="Options" Command="{Binding ShowOptionsCommand}" Margin="0,0,6,0" />
                         <Button Content="Logs folder" Command="{Binding OpenLogsCommand}" Margin="0,0,6,0" />
@@ -185,14 +209,12 @@
 
                         <WrapPanel>
                             <Border Style="{StaticResource Badge}"><TextBlock Text="{Binding KindText}" /></Border>
-                            <Border Style="{StaticResource Badge}" Background="#E8E8E8" Visibility="{Binding IsPreWindows, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Before Windows (BIOS / Setup)" /></Border>
                             <Border Style="{StaticResource Badge}" Background="#E3F0FF" Visibility="{Binding NeedsInternet, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="Needs internet" /></Border>
                             <Border Style="{StaticResource Badge}" Background="#E3F0FF" Visibility="{Binding MustBeOffline, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="Network cable unplugged" /></Border>
                             <Border Style="{StaticResource Badge}" Background="#FDE7E9" Visibility="{Binding NeedsConfirmation, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="Asks for confirmation" /></Border>
+                                <TextBlock Text="Shows what changes and asks to type a confirmation" /></Border>
                             <Border Style="{StaticResource Badge}" Background="#FFF4CE" Visibility="{Binding IsUncertain, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="[Uncertain] item: not confirmed on real hardware" /></Border>
                         </WrapPanel>
@@ -205,6 +227,8 @@
                         </StackPanel>
                         <TextBlock Text="{Binding Note}" TextWrapping="Wrap" Foreground="#555" Margin="0,2,0,0"
                                    Visibility="{Binding HasNote, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Text="{Binding CheckText}" TextWrapping="Wrap" Foreground="#555" Margin="0,2,0,0"
+                                   Visibility="{Binding HasCheckText, Converter={StaticResource BoolToVis}}" />
                         <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,4,0,0" Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate><TextBlock Text="{Binding StringFormat=⚠ {0}}" TextWrapping="Wrap" Foreground="#B05A00" Margin="0,1" /></DataTemplate>
@@ -217,13 +241,6 @@
                             <TextBox Text="{Binding Details, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0"
                                      Background="Transparent" FontSize="13" />
                         </StackPanel>
-                        <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" Visibility="{Binding HasRebootText, Converter={StaticResource BoolToVis}}">
-                            <Run Text="Restart: " FontWeight="SemiBold" /><Run Text="{Binding RebootText, Mode=OneWay}" />
-                        </TextBlock>
-                        <Border Background="#F0F0F0" Padding="10,6" Margin="0,10,0,0" Visibility="{Binding NotAutomatedYet, Converter={StaticResource BoolToVis}}">
-                            <TextBlock TextWrapping="Wrap"
-                                       Text="This version of the wizard does not run this check or command by itself yet. Run what is shown above, then mark the step done (or skip it with a reason)." />
-                        </Border>
 
                         <!-- Command preview for script steps -->
                         <StackPanel Visibility="{Binding DataContext.HasCommandPreview, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
@@ -234,21 +251,19 @@
 
                         <!-- Actions -->
                         <TextBlock Text="Actions" Style="{StaticResource SectionLabel}" />
+                        <TextBlock TextWrapping="Wrap" Foreground="#666" Margin="0,0,0,6" Visibility="{Binding IsManual, Converter={StaticResource BoolToVis}}"
+                                   Text="Manual step: do it, then Mark done (the wizard runs the step's check first, if it has one)." />
                         <WrapPanel>
-                            <Button Content="Run" FontWeight="SemiBold" Visibility="{Binding IsApplyRun, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding DataContext.RunCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                            <Button Content="Audit first (read-only)" Visibility="{Binding IsApplyRun, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding DataContext.AuditCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                            <Button Content="Run audit (read-only)" FontWeight="SemiBold" Visibility="{Binding IsAudit, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding DataContext.AuditCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Button Content="{Binding DoItText}" FontWeight="SemiBold" Visibility="{Binding CanDoIt, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding DataContext.DoItCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Button Content="{Binding CheckButtonText}" Visibility="{Binding HasCheck, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding DataContext.CheckNowCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                             <Button Content="Options…" Visibility="{Binding IsOptionsStep, Converter={StaticResource BoolToVis}}"
                                     Command="{Binding DataContext.ShowOptionsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                            <Button Content="Restart now" FontWeight="SemiBold" Visibility="{Binding IsRebootStep, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding DataContext.RestartForStepCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="now" />
-                            <Button Content="I will restart myself" Visibility="{Binding IsRebootStep, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding DataContext.RestartForStepCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="later" />
-                            <Button Content="Restart Windows" Visibility="{Binding OffersRestart, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding DataContext.RestartOnlyCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Button Content="Restart now" FontWeight="SemiBold" Visibility="{Binding IsRestart, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding DataContext.RestartStepCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="now" />
+                            <Button Content="I will restart myself" Visibility="{Binding IsRestart, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding DataContext.RestartStepCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="later" />
                             <Button Content="Finish build" FontWeight="SemiBold" Visibility="{Binding IsFinish, Converter={StaticResource BoolToVis}}"
                                     Command="{Binding DataContext.FinishCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                             <ItemsControl ItemsSource="{Binding OpenTargets}">
@@ -264,7 +279,7 @@
                             </ItemsControl>
                         </WrapPanel>
                         <WrapPanel>
-                            <Button Content="Mark done" Visibility="{Binding IsRebootStep, Converter={StaticResource InverseBoolToVis}}"
+                            <Button Content="Mark done" Visibility="{Binding CanMarkDone, Converter={StaticResource BoolToVis}}"
                                     Command="{Binding DataContext.MarkDoneCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                             <Button Content="Skip…" Command="{Binding DataContext.SkipCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                             <Button Content="Not applicable…" Command="{Binding DataContext.NotApplicableCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
@@ -279,7 +294,7 @@
                                     <Button Content="Stop" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" Command="{Binding CancelCommand}" Margin="0,0,8,0" />
                                     <Button Content="Open run folder" Command="{Binding OpenRunFolderCommand}" Margin="0" />
                                 </StackPanel>
-                                <TextBlock Text="Last script run" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#404040" />
+                                <TextBlock Text="Last run" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#404040" />
                             </DockPanel>
                             <TextBlock Text="{Binding RunStatus}" TextWrapping="Wrap" Margin="0,0,0,4" />
                             <ListBox ItemsSource="{Binding LogLines}" Height="300" FontFamily="Consolas" FontSize="12"
