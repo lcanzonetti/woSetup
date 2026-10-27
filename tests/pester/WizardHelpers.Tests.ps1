@@ -24,13 +24,17 @@ BeforeAll {
         @{ Profile = $ProfileName; Role = 'Display'; Options = @{ DefenderMode = 'Off'; KeepUpdateService = $false } } |
             ConvertTo-Json -Depth 4 | Set-Content -Path $params -Encoding UTF8
         & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $checksPs1 -Ids ($Ids -join ',') -ParamsJson $params -ResultPath $result | Out-Host
-        [pscustomobject]@{ Exit = $LASTEXITCODE; Results = @(Get-Content -Raw $result | ConvertFrom-Json) }
+        $exit = $LASTEXITCODE
+        # Windows PowerShell 5.1's ConvertFrom-Json emits a JSON array as ONE
+        # object; ForEach-Object unrolls it into its elements.
+        [pscustomobject]@{ Exit = $exit; Results = @(Get-Content -Raw $result | ConvertFrom-Json | ForEach-Object { $_ }) }
     }
 
     function Invoke-Query([string]$Name) {
         $result = Join-Path $work "$Name.json"
         & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $actionsPs1 -Action $Name -ResultPath $result | Out-Host
-        [pscustomobject]@{ Exit = $LASTEXITCODE; Result = (Get-Content -Raw $result | ConvertFrom-Json) }
+        $exit = $LASTEXITCODE
+        [pscustomobject]@{ Exit = $exit; Result = (Get-Content -Raw $result | ConvertFrom-Json) }
     }
 }
 
@@ -79,14 +83,14 @@ Describe 'WO-Actions.ps1 read-only queries' {
         $q.Exit | Should -Be 0
         $q.Result.Status | Should -Be 'Completed'
         $system = (Get-Partition -DriveLetter $env:SystemDrive[0]).DiskNumber
-        @($q.Result.Data | Where-Object { $_.Number -eq $system }) | Should -BeNullOrEmpty
+        @($q.Result.Data | ForEach-Object { $_ } | Where-Object { $_.Number -eq $system }) | Should -BeNullOrEmpty
     }
 
     It 'list-adapters returns the physical adapters' {
         $q = Invoke-Query 'list-adapters'
         $q.Exit | Should -Be 0
         $q.Result.Status | Should -Be 'Completed'
-        @($q.Result.Data).Count | Should -Be @(Get-NetAdapter -Physical | Where-Object { $_.Status -ne 'Disabled' }).Count
+        @($q.Result.Data | ForEach-Object { $_ }).Count | Should -Be @(Get-NetAdapter -Physical | Where-Object { $_.Status -ne 'Disabled' }).Count
     }
 
     It 'refuses an unknown action' {

@@ -199,7 +199,9 @@ function Get-AdapterList {
         $n = $_
         $ip = Get-NetIPAddress -InterfaceIndex $n.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1
         $gw = Get-NetRoute -InterfaceIndex $n.ifIndex -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1
-        $dns = @((Get-DnsClientServerAddress -InterfaceIndex $n.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses)
+        # Pipeline, not (...).ServerAddresses: under StrictMode a missing entry would throw.
+        $dns = @(Get-DnsClientServerAddress -InterfaceIndex $n.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                 ForEach-Object { $_.ServerAddresses } | Where-Object { $_ })
         $if = Get-NetIPInterface -InterfaceIndex $n.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue
         [pscustomobject]@{
             Name = $n.Name; Description = $n.InterfaceDescription; Status = "$($n.Status)"
