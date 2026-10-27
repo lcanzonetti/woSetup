@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The wizard: WPF, Windows only. Published as one self-contained exe
+       (Properties/PublishProfiles/win-x64.pubxml). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>WOSetupWizard</AssemblyName>
+    <RootNamespace>WOSetup.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <ProjectReference Include="..\WOSetup.Core\WOSetup.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The setup scripts are linked from /scripts, never copied, so the repo
+         keeps one version of each. -->
+    <EmbeddedResource Include="..\..\scripts\WO7-Setup.ps1" LogicalName="engine/WO7-Setup.ps1" />
+    <EmbeddedResource Include="..\..\scripts\WO6-Setup.ps1" LogicalName="engine/WO6-Setup.ps1" />
+    <EmbeddedResource Include="Engine\Invoke-WOEngine.ps1" LogicalName="engine/Invoke-WOEngine.ps1" />
+    <!-- LGPO.exe is bundled when present at build time (decided OPEN_QUESTIONS 3).
+         It is not in git: put it in third_party/LGPO/ before building. Without
+         it, the wizard uses an LGPO.exe placed next to the wizard exe, or the
+         scripts' registry fallback. -->
+    <EmbeddedResource Include="..\..\third_party\LGPO\LGPO.exe" LogicalName="engine/LGPO.exe"
+                      Condition="Exists('..\..\third_party\LGPO\LGPO.exe')" />
+  </ItemGroup>
+</Project>

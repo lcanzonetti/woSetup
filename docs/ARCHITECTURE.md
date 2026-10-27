@@ -55,6 +55,14 @@ any telemetry or auto-update package.
 
 ## 3. Solution structure
 
+> **As built in version 0.1:** two projects instead of four. `WOSetup.Core`
+> (as below, plus `Engine/WizardSession` holding every state change) and
+> `WOSetup.App` (WPF app; also holds what was planned as `WOSetup.Windows`:
+> `Services/` for the PowerShell runner, run folders, paths, dialogs, support
+> bundle; and the embedded scripts + `Engine/Invoke-WOEngine.ps1`). The flow
+> JSON is embedded in Core. A separate Windows project can be split out when
+> the native checks (M3) arrive.
+
 ```
 WOSetupWizard.sln
 │

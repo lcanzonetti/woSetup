@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Platform-neutral logic: step model, state file, navigation, options,
+       confirmation text, script result parsing. No Windows APIs, so it is
+       unit-tested on any OS. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>WOSetup.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Generated from docs/WIZARD_FLOW.md by tools/flowgen/generate_flows.py -->
+    <EmbeddedResource Include="Flows\*.flow.json" LogicalName="flows/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

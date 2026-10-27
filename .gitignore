@@ -1,0 +1,11 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+.vs/
+TestResults/
+
+# Microsoft binary, never committed (see third_party/LGPO/README.md)
+third_party/LGPO/*.exe
+third_party/LGPO/*.zip

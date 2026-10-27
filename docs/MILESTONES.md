@@ -23,6 +23,23 @@ those stay "not verified" until HW runs.
 
 ---
 
+## Status (27 Oct 2026)
+
+Version 0.1 delivers **M1** and the core of **M2** and **M4** together, so the
+owner can test the scripts from the GUI:
+
+- Done in code: solution layout, both flows generated from WIZARD_FLOW, state
+  file (atomic, `.bak` fallback, schema check), resume on next start, restart
+  confirmation, single instance, wizard.log; script runner with wrapper, live
+  log, result file, warnings, backups (baseline), audits, confirmation summary
+  with typed `APPLY`, cancel; options page for every parameter with command
+  preview; support bundle; Start over. 58 unit tests (Core), CI on Windows.
+- Not yet: automatic checks (M3), checklist commands `pnputil` /
+  `manage-bde` (M3), pre-flight show-account / execution-policy checks (M2),
+  restore actions and options profiles (M4), report (M5).
+- **Not yet run on Windows.** Built and unit-tested on Linux; the UI and the
+  script runs need the owner's test on a Windows 11 VM.
+
 ## M1 — Skeleton, state, resume
 
 **Goal:** a portable wizard that shows both flows, remembers where it is,
