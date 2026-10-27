@@ -43,6 +43,11 @@ dotnet test tests/WOSetup.Core.Tests                         # unit tests
 dotnet publish src/WOSetup.App -p:PublishProfile=win-x64       # -> publish/WOSetupWizard.exe
 ```
 
+- **First build needs internet:** `dotnet` downloads the packages (xUnit,
+  CommunityToolkit.Mvvm) from nuget.org; `nuget.config` in the repo root names
+  that source. `NU1100 Unable to resolve ...` means nuget.org could not be
+  reached: check the connection or proxy, then run `dotnet nuget locals all --clear`
+  and build again.
 - **LGPO.exe:** put Microsoft's `LGPO.exe` in `third_party/LGPO/` before
   publishing to bundle it (it is never committed; see that folder's README).
 - **Step lists:** generated from `docs/WIZARD_FLOW.md`. After editing it, run
