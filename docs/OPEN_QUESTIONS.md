@@ -489,8 +489,17 @@ Each needs a test on a VM, the **[Uncertain]** ones on real hardware:
   reliable check from Windows; the operator confirms (one list for steps
   done earlier).
 
-**Needed from the owner:** test results per item; the exact WATCHOUT 7
-programs entry and CodeMeter service name from a real machine.
+**Needed from the owner:** test results per item.
+
+**Owner decision (Oct 2026):** the four detections that depended on
+unconfirmed names are **not wanted** and were removed: the blank-password
+logon test (auto-logon), the WATCHOUT 7 programs-entry lookup (and the
+start-screen profile suggestion built on it), the CodeMeter service check,
+and AMD RAID / RAID-app detection. Those steps stay in checklist order as
+manual steps without a check (WATCHOUT 6 is still found by WATCHPOINT.exe /
+WATCHMAKER.exe, as in the script). The remaining items above (Wake on
+Magic Packet, display scale, static IP, BitLocker, media drive) are the
+owner-requested actions and stay, untested until run on a VM.
 
 ## 26. Redesign: what the wizard does itself (new, v0.2)
 

@@ -249,7 +249,7 @@
         {
           "id": "WO7-02.2",
           "title": "AMD RAID drivers rcbottom, rcraid and rccfg all present",
-          "kind": "check",
+          "kind": "manual",
           "details": "pnputil /enum-drivers. Not applicable when the machine has no AMD RAID. rccfg is not always carried over from Windows Setup [Uncertain]: this is how you find out.",
           "roles": [
             "Display",
@@ -261,8 +261,7 @@
           "uncertain": true,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "amd-raid-drivers"
+          "informational": false
         },
         {
           "id": "WO7-02.3",
@@ -279,8 +278,7 @@
           "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "raidxpert2"
+          "informational": false
         },
         {
           "id": "WO7-02.4",
@@ -545,7 +543,7 @@
           "id": "WO7-05.1",
           "title": "Install WATCHOUT 7",
           "kind": "manual",
-          "details": "Check: a WATCHOUT 7 entry in the installed programs [Uncertain product name].",
+          "details": "",
           "roles": [
             "Display",
             "Production"
@@ -553,11 +551,10 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": true,
+          "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "watchout-installed"
+          "informational": false
         },
         {
           "id": "WO7-05.2",
@@ -581,7 +578,7 @@
           "id": "WO7-05.3",
           "title": "Auto-logon",
           "kind": "manual",
-          "details": "Not needed when the show account has no password: Windows then signs in by itself. Otherwise netplwiz (checkbox missing > Settings > Accounts > Sign-in options > turn off \"only allow Windows Hello sign-in\"). Check: AutoAdminLogon set, or the account has no password [Uncertain detection].",
+          "details": "Not needed when the show account has no password: Windows then signs in by itself. Otherwise netplwiz (checkbox missing > Settings > Accounts > Sign-in options > turn off \"only allow Windows Hello sign-in\").",
           "roles": [
             "Display",
             "Production"
@@ -589,11 +586,10 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": true,
+          "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false,
-          "check": "auto-logon"
+          "informational": false
         },
         {
           "id": "WO7-05.4",

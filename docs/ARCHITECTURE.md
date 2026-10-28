@@ -239,8 +239,8 @@ Location: `%ProgramData%\WOSetupWizard\state.json` (AGENTS.md).
 - On load: if `state.json` fails to parse, fall back to `state.json.bak` and
   warn.
 - `schemaVersion` + `StateMigrator` for later changes.
-- No secrets, ever (no passwords; auto-logon is checked by reading
-  `AutoAdminLogon`/`DefaultUserName` only).
+- No secrets, ever (no passwords; auto-logon is not checked, owner
+  decision OQ 25).
 
 ### 5.2 Schema (version 1)
 
@@ -791,8 +791,10 @@ decryption still in progress shows as "not done" with its percentage.
   confirmed by typing its number.
 - Change WATCHOUT/Dataton services or CodeMeter.
 - Change BIOS, NVIDIA Control Panel, Tamper Protection, display scale,
-  auto-logon (guides + checks only). Install Windows updates, drivers, the
-  NVIDIA driver or WATCHOUT (manual, decided Oct 2026; checks only).
+  auto-logon (guides, plus checks where one exists). Install Windows
+  updates, drivers, the NVIDIA driver or WATCHOUT (manual, decided Oct
+  2026). No checks for auto-logon, the WATCHOUT 7 install, CodeMeter or
+  RAID drivers/apps (owner decision, OQ 25).
 - Re-implement WinUtil tweaks. For now WinUtil is run by the operator
   (online launch or a local offline copy, OQ 4); the owner may later move a
   chosen subset of WinUtil tweaks into the scripts.

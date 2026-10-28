@@ -78,26 +78,6 @@ function Get-ServiceStart([string]$Name) {
 
 function Get-PhysicalNics { @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -ne 'Disabled' }) }
 
-function Get-DriverInfs {
-    # Original .inf names of the driver packages in the driver store. File
-    # names are not localised, so this works on any Windows language.
-    $out = & pnputil.exe /enum-drivers 2>$null
-    @($out | Where-Object { $_ -match '\.inf\s*$' } | ForEach-Object { ($_ -split ':')[-1].Trim().ToLowerInvariant() })
-}
-
-function Test-AmdRaid {
-    # Three AMD RAID packages present? Returns a result, or $null when the
-    # machine shows no sign of AMD RAID at all.
-    $infs = Get-DriverInfs
-    $want = 'rcbottom', 'rcraid', 'rccfg'
-    $found = @($want | Where-Object { $n = $_; @($infs | Where-Object { $_ -like "$n*.inf" }).Count -gt 0 })
-    $amdDevice = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'AMD.*RAID|RAID.*AMD' })
-    if ($found.Count -eq 0 -and $amdDevice.Count -eq 0) { return $null }
-    if ($found.Count -eq 3) { return New-Check 'Done' 'rcbottom, rcraid and rccfg are in the driver store.' }
-    $missing = @($want | Where-Object { $found -notcontains $_ })
-    return New-Check 'NotDone' "Missing from the driver store: $($missing -join ', ') (found: $(if ($found) { $found -join ', ' } else { 'none' }))."
-}
-
 function Get-WatchoutPathFor6 {
     # Same lookup as WO6-Setup.ps1: option, Uninstall entry, default folders.
     $isWo = { param($p) [bool]$p -and ([IO.File]::Exists([IO.Path]::Combine($p, 'WATCHPOINT.exe')) -or
@@ -117,25 +97,6 @@ function Get-ConsoleUser {
     if ($u) { return "$u" }
     return $null
 }
-
-Add-Type -ErrorAction SilentlyContinue -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-public static class WoLogon {
-    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    static extern bool LogonUser(string user, string domain, string password, int type, int provider, out IntPtr token);
-    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
-    // Tries an interactive logon with an EMPTY password. Returns 0 on
-    // success, otherwise the Win32 error: 1327 (account restriction) is what
-    // a blank password gets under "Limit local account use of blank
-    // passwords to console logon only"; 1326 means the password is not blank.
-    public static int TryBlank(string user) {
-        IntPtr t;
-        if (LogonUser(user, ".", "", 2, 0, out t)) { CloseHandle(t); return 0; }
-        return Marshal.GetLastWin32Error();
-    }
-}
-'@
 
 $Checks = [ordered]@{
 
@@ -196,37 +157,6 @@ $Checks = [ordered]@{
         New-Check 'CantCheck' "$text Whether more updates are available can only be seen in Windows Update."
     }
 
-    'amd-raid-drivers' = {
-        $r = Test-AmdRaid
-        if ($null -eq $r) { return New-Check 'NotApplicable' 'No AMD RAID on this machine.' }
-        $r
-    }
-
-    'raid-drivers' = {
-        $amd = Test-AmdRaid
-        $mega = @(Get-DriverInfs | Where-Object { $_ -like 'megasas*.inf' })
-        if ($mega) { return New-Check 'Done' "Broadcom MegaRAID driver present ($($mega -join ', '))." }
-        if ($null -ne $amd) { return $amd }
-        New-Check 'NotApplicable' 'No AMD RAID or Broadcom MegaRAID on this machine.'
-    }
-
-    'raidxpert2' = {
-        if ($null -eq (Test-AmdRaid)) { return New-Check 'NotApplicable' 'No AMD RAID on this machine.' }
-        $p = @(Get-Uninstall | Where-Object { $_.DisplayName -match 'RAIDXpert' })
-        if ($p) { return New-Check 'Done' "$($p[0].DisplayName) $(if ($p[0].PSObject.Properties['DisplayVersion']) { $p[0].DisplayVersion })." }
-        New-Check 'NotDone' 'RAIDXpert2 is not installed.'
-    }
-
-    'raid-mgmt-app' = {
-        $amd = Test-AmdRaid
-        $mega = @(Get-DriverInfs | Where-Object { $_ -like 'megasas*.inf' })
-        if ($null -eq $amd -and -not $mega) { return New-Check 'NotApplicable' 'No RAID controller on this machine.' }
-        # [Uncertain] product names of the Broadcom tools.
-        $p = @(Get-Uninstall | Where-Object { $_.DisplayName -match 'RAIDXpert|MegaRAID|Storage Authority|StorCLI' })
-        if ($p) { return New-Check 'Done' "$(($p | ForEach-Object { $_.DisplayName }) -join ', ')." }
-        New-Check 'NotDone' 'No RAID management app found in the installed programs.'
-    }
-
     'nvidia-driver' = {
         $gpus = @(Get-CimInstance Win32_VideoController)
         $nv = @($gpus | Where-Object { $_.Name -match 'NVIDIA' })
@@ -283,18 +213,12 @@ $Checks = [ordered]@{
     }
 
     'watchout-installed' = {
-        if ("$($ctx.Profile)" -eq 'WO6') {
-            $p = Get-WatchoutPathFor6
-            if ($p) { return New-Check 'Done' "WATCHOUT 6 in $p." }
-            return New-Check 'NotDone' 'WATCHPOINT.exe / WATCHMAKER.exe not found (set -WatchoutPath in Options if it is elsewhere).'
-        }
-        # [Uncertain] product name/version of the WATCHOUT 7 installer entry.
-        $e = @(Get-Uninstall | Where-Object { $_.DisplayName -match 'WATCHOUT' -and (
-                $_.DisplayName -match '\b7' -or ($_.PSObject.Properties['DisplayVersion'] -and "$($_.DisplayVersion)" -match '^7\.')) })
-        if ($e) { return New-Check 'Done' "$($e[0].DisplayName) $(if ($e[0].PSObject.Properties['DisplayVersion']) { $e[0].DisplayVersion })." }
-        $any = @(Get-Uninstall | Where-Object { $_.DisplayName -match 'WATCHOUT' })
-        if ($any) { return New-Check 'CantCheck' "Found $(($any | ForEach-Object { $_.DisplayName }) -join ', ') but cannot tell if it is WATCHOUT 7." }
-        New-Check 'NotDone' 'No WATCHOUT entry in the installed programs.'
+        # WATCHOUT 6 only: found by its executables, the same lookup as WO6-Setup.ps1.
+        # WATCHOUT 7 has no check (owner, Oct 2026: its programs entry is not confirmed).
+        if ("$($ctx.Profile)" -ne 'WO6') { return New-Check 'CantCheck' 'No check for WATCHOUT 7: confirm the install yourself.' }
+        $p = Get-WatchoutPathFor6
+        if ($p) { return New-Check 'Done' "WATCHOUT 6 in $p." }
+        New-Check 'NotDone' 'WATCHPOINT.exe / WATCHMAKER.exe not found (set -WatchoutPath in Options if it is elsewhere).'
     }
 
     'wo7-workdir' = {
@@ -302,17 +226,6 @@ $Checks = [ordered]@{
         if (-not $w) { return New-Check 'CantCheck' 'Working directory not set in Options (-WorkingDirectory): the wizard cannot see the WATCHOUT setting.' }
         if (Test-Path -LiteralPath $w) { return New-Check 'Done' "$w exists." }
         New-Check 'NotDone' "$w does not exist."
-    }
-
-    'auto-logon' = {
-        $wl = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
-        if ("$(Get-RegValue $wl 'AutoAdminLogon')" -eq '1') { return New-Check 'Done' "Auto-logon set for $(Get-RegValue $wl 'DefaultUserName')." }
-        $user = [Environment]::UserName
-        $code = [WoLogon]::TryBlank($user)
-        # [Uncertain] interpretation of the logon result, see WoLogon above.
-        if ($code -eq 0 -or $code -eq 1327) { return New-Check 'Done' "$user has no password: Windows signs in by itself." }
-        if ($code -eq 1326) { return New-Check 'NotDone' "$user has a password and auto-logon is not set." }
-        New-Check 'CantCheck' "Could not tell (logon test returned error $code)."
     }
 
     'static-ip' = {
@@ -407,15 +320,6 @@ $Checks = [ordered]@{
         if (-not $m) { return New-Check 'Done' 'Windows Search service not present.' }
         if ($m -eq 'Disabled') { return New-Check 'Done' 'WSearch disabled.' }
         New-Check 'NotDone' "WSearch is $m."
-    }
-
-    'codemeter-running' = {
-        # [Uncertain] service name of the CodeMeter runtime.
-        $s = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'CodeMeter' -or $_.DisplayName -match 'CodeMeter' })
-        if (-not $s) { return New-Check 'NotDone' 'No CodeMeter service found (runtime not installed?).' }
-        $run = @($s | Where-Object { "$($_.Status)" -eq 'Running' })
-        if ($run) { return New-Check 'Done' "$($run[0].DisplayName) running. Check the licence itself in CodeMeter Control Center." }
-        New-Check 'NotDone' "$($s[0].DisplayName) is $($s[0].Status)."
     }
 
     'no-watchpoint-shortcut' = {

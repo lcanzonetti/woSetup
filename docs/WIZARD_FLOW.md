@@ -38,8 +38,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
 | WO7-02.1 | Windows Update: install everything, restart, repeat until nothing is left | Manual | `updates` | needs internet |
-| WO7-02.2 | AMD RAID drivers rcbottom, rcraid and rccfg all present | Check | `amd-raid-drivers` | [Uncertain] |
-| WO7-02.3 | Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup) | Manual | `raidxpert2` |  |
+| WO7-02.2 | AMD RAID drivers rcbottom, rcraid and rccfg all present | Manual | — | [Uncertain] |
+| WO7-02.3 | Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup) | Manual | — |  |
 | WO7-02.4 | Chipset and storage drivers | Manual | — |  |
 | WO7-02.5 | NVIDIA driver at the version tested for your WATCHOUT release | Manual | `nvidia-driver` |  |
 | WO7-02.6 | Capture and audio drivers; test each in the vendor's own app | Manual | — |  |
@@ -68,9 +68,9 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
-| WO7-05.1 | Install WATCHOUT 7 | Manual | `watchout-installed` | [Uncertain] |
+| WO7-05.1 | Install WATCHOUT 7 | Manual | — |  |
 | WO7-05.2 | Folder on the RAID0, then Nodes > Node Properties > Change Working Directory to it | Manual | `wo7-workdir` |  |
-| WO7-05.3 | Auto-logon | Manual | `auto-logon` | [Uncertain] |
+| WO7-05.3 | Auto-logon | Manual | — |  |
 | WO7-05.4 | NVIDIA Control Panel: global profile "Workstation – Dynamic Streaming" | Manual | — |  |
 | WO7-05.5 | Then confirm Power Management Mode = Prefer Maximum Performance and Vertical Sync = Off | Manual | — |  |
 | WO7-05.6 | Static IPs on the show adapters; all nodes on one subnet | Automatic — static-ip | `static-ip` | 🔒 |
@@ -151,8 +151,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
 | WO6-02.1 | Windows Update: install everything, restart, repeat until nothing is left | Manual | `updates` | needs internet |
-| WO6-02.2 | RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas) | Check | `raid-drivers` |  |
-| WO6-02.3 | RAID management app installed | Manual | `raid-mgmt-app` | [Uncertain] |
+| WO6-02.2 | RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas) | Manual | — |  |
+| WO6-02.3 | RAID management app installed | Manual | — |  |
 | WO6-02.4 | Chipset and storage drivers | Manual | — |  |
 | WO6-02.5 | NVIDIA driver at the version tested with your WATCHOUT 6 release | Manual | `nvidia-driver` |  |
 | WO6-02.6 | Capture and audio drivers; test each card in its vendor app before WATCHOUT | Manual | — |  |
@@ -184,9 +184,9 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | --- | --- | --- | --- | --- |
 | WO6-05.1 | Install WATCHOUT 6 to the folder chosen in section 3 | Manual | `watchout-installed` |  |
 | WO6-05.2 | Plug in the licence key directly (no USB hub; rear ports preferred) | Manual | — |  |
-| WO6-05.3 | Key detected: CodeMeter Control Center shows the licence | Manual | `codemeter-running` | [Uncertain] |
+| WO6-05.3 | Key detected: CodeMeter Control Center shows the licence | Manual | — |  |
 | WO6-05.4 | No Startup-folder shortcut to WATCHPOINT (PostInstall creates the auto-start task) | Check | `no-watchpoint-shortcut` |  |
-| WO6-05.5 | Auto-logon | Manual | `auto-logon` | [Uncertain] |
+| WO6-05.5 | Auto-logon | Manual | — |  |
 | WO6-05.6 | NVIDIA Control Panel: Power Management Mode = Prefer Maximum Performance, Vertical Sync = Off | Manual | — |  |
 | WO6-05.7 | Display resolution and refresh set manually per output | Manual | — |  |
 | WO6-05.8 | Production PC: Mouse > "Scroll inactive windows when hovering over them" Off | Manual | — | Production only |

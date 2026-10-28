@@ -12,8 +12,8 @@ Status: **version 0.2 – "check and do" redesign, not yet tested on Windows.**
    this build does not bundle it, see below).
 2. On a machine where Windows 11 is installed and you are signed in with the
    show account, start the exe. It asks for administrator rights.
-3. Choose the profile (WATCHOUT 7 / WATCHOUT 6; the wizard suggests one if it
-   finds WATCHOUT installed) and the role (Display / Production).
+3. Choose the profile (WATCHOUT 7 / WATCHOUT 6) and the role (Display /
+   Production).
    - **Start and check this machine**: for a machine prepared earlier (also
      by hand). Every read-only check runs, steps found done are marked done,
      and the wizard jumps to what is missing.
