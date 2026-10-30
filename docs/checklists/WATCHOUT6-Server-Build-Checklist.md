@@ -44,12 +44,13 @@ WATCHOUT 6 keeps transferred shows and media in a "Shows" folder inside its inst
 
 Same selection as the WATCHOUT 7 build; it covers the guide's chapters 4–6 (hibernation, app removal, OneDrive). Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and `$Env:OneDrive` are harmless.
 
-- [ ] Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI
-- [ ] Also tick: **BitLocker - Disable**, Visual Effects - Best Performance, Storage Sense - Disable
-- [ ] Skip: Edge removal (keeps WebView2), IPv6 disable (the script unbinds it per adapter), UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in)
-- [ ] Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off
-- [ ] Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan)
-- [ ] Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
+- [ ] Run WinUtil with this selection (one session):
+  - Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI
+  - Also tick: **BitLocker - Disable**, Visual Effects - Best Performance, Storage Sense - Disable
+  - Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off
+  - Leave unticked: Edge removal (keeps WebView2), IPv6 disable (the script unbinds it per adapter), UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in)
+  - Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan)
+  - Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
 
 ## 5. WATCHOUT 6, licence and NVIDIA
 

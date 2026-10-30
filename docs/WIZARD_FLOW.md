@@ -57,12 +57,7 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
-| WO7-04.1 | Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI | Manual | — | needs internet |
-| WO7-04.2 | Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable | Manual | — |  |
-| WO7-04.3 | Skip: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in) | Manual | — |  |
-| WO7-04.4 | Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off | Manual | — |  |
-| WO7-04.5 | Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 7" plan) | Manual | — |  |
-| WO7-04.6 | Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts | Manual | — | [Uncertain] |
+| WO7-04.1 | WinUtil: tick the tweaks and preferences listed below, then run them | Manual | — | needs internet, [Uncertain] |
 
 ### 5. WATCHOUT 7 and NVIDIA
 
@@ -171,12 +166,7 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
-| WO6-04.1 | Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI | Manual | — | needs internet |
-| WO6-04.2 | Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable | Manual | — |  |
-| WO6-04.3 | Skip: Edge removal (keeps WebView2), IPv6 disable (the script unbinds it per adapter), UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in) | Manual | — |  |
-| WO6-04.4 | Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off | Manual | — |  |
-| WO6-04.5 | Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan) | Manual | — |  |
-| WO6-04.6 | Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts | Manual | — | [Uncertain] |
+| WO6-04.1 | WinUtil: tick the tweaks and preferences listed below, then run them | Manual | — | needs internet, [Uncertain] |
 
 ### 5. WATCHOUT 6, licence and NVIDIA
 

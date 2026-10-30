@@ -242,10 +242,10 @@ public sealed class SessionTests : IDisposable
     public void Operator_can_confirm_several_manual_steps_at_once()
     {
         var s = NewSession(Profile.WO7);
-        s.MarkManyDone(["WO7-04.1", "WO7-04.2"], "Done before the wizard was used.");
+        s.MarkManyDone(["WO7-04.1", "WO7-05.4"], "Done before the wizard was used.");
         Assert.Equal(StepStatus.Done, s.State.StatusOf("WO7-04.1"));
-        Assert.False(s.State.Step("WO7-04.2").Detected);
-        Assert.Equal("Done before the wizard was used.", s.State.Step("WO7-04.2").Note);
+        Assert.False(s.State.Step("WO7-05.4").Detected);
+        Assert.Equal("Done before the wizard was used.", s.State.Step("WO7-05.4").Note);
     }
 
     [Fact]

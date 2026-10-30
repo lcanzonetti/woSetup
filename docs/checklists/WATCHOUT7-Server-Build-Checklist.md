@@ -41,12 +41,13 @@ Windows 11 24H2 and later turn on device encryption by default; a BIOS or RAID c
 
 Run after updates and drivers, before WATCHOUT. Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and `$Env:OneDrive` are harmless on a stripped install.
 
-- [ ] Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI
-- [ ] Also tick: **BitLocker - Disable**, Visual Effects - Best Performance, Storage Sense - Disable
-- [ ] Skip: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in)
-- [ ] Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off
-- [ ] Do NOT click either Ultimate Performance button (PostInstall makes its own plan)
-- [ ] Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
+- [ ] Run WinUtil with this selection (one session):
+  - Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI
+  - Also tick: **BitLocker - Disable**, Visual Effects - Best Performance, Storage Sense - Disable
+  - Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off
+  - Leave unticked: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in)
+  - Do NOT click either Ultimate Performance button (PostInstall makes its own plan)
+  - Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
 
 ## 5. WATCHOUT 7 and NVIDIA
 

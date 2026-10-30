@@ -107,22 +107,30 @@ def first_boot(p, script_name):
 
 
 def winutil(p, wo6):
-    skip = ("Skip: Edge removal (keeps WebView2), IPv6 disable" + (" (the script unbinds it per adapter)" if wo6 else "") +
-            ", UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in)")
-    plan = "Do NOT click either Ultimate Performance button (PostInstall makes its own " + ('"WATCHOUT 6"' if wo6 else '"WATCHOUT 7"') + " plan)"
-    note = ("Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local "
-            "copy of winutil.ps1. Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive "
-            "are harmless on a stripped install.")
+    # One step (owner, Oct 2026): the skip list, the Ultimate Performance and
+    # Multiplane Overlay lines are reminders for the same WinUtil session, so
+    # they are part of its instructions instead of separate steps.
+    plan = '"WATCHOUT 6"' if wo6 else '"WATCHOUT 7"'
+    details = "\n".join([
+        "Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local copy of winutil.ps1.",
+        "",
+        "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, "
+        "Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, "
+        "System Tray notifications, Windows AI.",
+        "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable.",
+        "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off.",
+        "",
+        "Leave unticked: Edge removal (keeps WebView2), IPv6 disable" + (" (the script unbinds it per adapter)" if wo6 else "") +
+        ", UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in).",
+        "Do NOT click either Ultimate Performance button: PostInstall makes its own " + plan + " plan.",
+        "Multiplane Overlay: leave Enabled; disable it only if the soak test shows flicker or blackouts "
+        "(the registry method is reportedly ignored on 24H2+ [Uncertain]).",
+        "",
+        "Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive are harmless on a stripped install.",
+    ])
     return {"id": f"{p}-04", "number": 4, "title": "WinUtil debloat", "steps": [
-        step(f"{p}-04.1", "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, "
-             "Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, "
-             "Home and Gallery, OneDrive removal, System Tray notifications, Windows AI", "manual", note, internet=True),
-        step(f"{p}-04.2", "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable", "manual"),
-        step(f"{p}-04.3", skip, "manual"),
-        step(f"{p}-04.4", "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off", "manual"),
-        step(f"{p}-04.5", plan, "manual"),
-        step(f"{p}-04.6", "Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts", "manual",
-             "The registry method is reportedly ignored on 24H2+ [Uncertain].", uncertain=True),
+        step(f"{p}-04.1", "WinUtil: tick the tweaks and preferences listed below, then run them", "manual", details,
+             internet=True, uncertain=True),
     ]}
 
 
