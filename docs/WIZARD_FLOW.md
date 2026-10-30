@@ -50,7 +50,7 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | --- | --- | --- | --- | --- |
 | WO7-03.1 | BitLocker / device encryption off | Automatic — bitlocker-off | `bitlocker-off` | 🔒 |
 | WO7-03.2 | Media drive: initialise GPT, format NTFS | Automatic — media-disk-init | `media-volume` | 🔒 |
-| WO7-03.3 | Indexing off on the media drive | Automatic — indexing-off | `media-indexing-off` |  |
+| WO7-03.3 | Indexing off on the media drive | Automatic — indexing-off | `media-indexing-off` | [Uncertain] |
 | WO7-03.4 | RAID management app: array healthy; write-back cache and read-ahead optional | Manual | `disks-healthy` |  |
 
 ### 4. WinUtil debloat
@@ -105,7 +105,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-08.7 | Production PC: Win32PrioritySeparation = 40 (0x28) (12.3) | Check | `reg-priosep` | Production only |
 | WO7-08.8 | Performance Options: "Adjust for best performance", every effect unticked (10.3) | Manual | `visual-effects` | [Uncertain] |
 | WO7-08.9 | USB notifications off (10.12) | Check | `usb-notify-off` | [Uncertain] |
-| WO7-08.10 | Windows Search service disabled: no indexing (10.15) | Check | `wsearch-disabled` |  |
+| WO7-08.10 | Windows Search service disabled (10.15) | Check | `wsearch-disabled` |  |
+| WO7-08.10a | Contents indexing off on every data drive (10.15, per drive) | Check | `media-indexing-off` | [Uncertain] |
 | WO7-08.11 | Full audit: both script phases report every item Set | Check | `audit:Both` |  |
 | WO7-08.12 | All nodes discover each other; asset transfer to the RAID0 works | Manual | — |  |
 | WO7-08.13 | Optional: secpol.msc > Network List Manager Policies > User cannot change location | Manual | — |  |

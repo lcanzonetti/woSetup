@@ -113,19 +113,29 @@ function Invoke-MediaDiskInit {
 
 # ---------------------------------------------------------------------------
 # Checklist "Disks": turn off indexing on the media drive (guide 10.15, per
-# drive: "Allow files on this drive to have contents indexed"). Applied to
-# every fixed drive except the system drive.
+# drive: untick "Allow files on this drive to have contents indexed").
+# Applied to every fixed drive except the system drive, as Explorer's
+# "Apply changes to <drive> only": the NotContentIndexed attribute is set
+# on the drive's root folder; existing files are not touched. Read back
+# from the same attribute. Win32_Volume.IndexingEnabled alone proved
+# unreliable (owner, Oct 2026). [Uncertain] whether Explorer's box follows
+# the root attribute in every case: the read-back says so if not.
 # ---------------------------------------------------------------------------
 function Invoke-IndexingOff {
     Write-Step 'Indexing off on the data drives'
     $vols = @(Get-CimInstance Win32_Volume -Filter 'DriveType=3' | Where-Object { $_.DriveLetter -and $_.DriveLetter -ne $env:SystemDrive })
     if (-not $vols) { Write-Ok 'No fixed drive besides the system drive.'; return }
+    $flag = [IO.FileAttributes]::NotContentIndexed
     foreach ($v in $vols) {
-        if (-not $v.IndexingEnabled) { Write-Ok "$($v.DriveLetter) already off"; continue }
-        Set-CimInstance -InputObject $v -Property @{ IndexingEnabled = $false }
-        $after = Get-CimInstance Win32_Volume -Filter "DeviceID='$($v.DeviceID.Replace('\', '\\'))'"
-        if (-not $after.IndexingEnabled) { Write-Ok "$($v.DriveLetter) indexing off" }
-        else { Write-Warn "$($v.DriveLetter): indexing still on after the change." }
+        $root = "$($v.DriveLetter)\"
+        $attr = [IO.File]::GetAttributes($root)
+        if (($attr -band $flag) -eq $flag) { Write-Ok "$($v.DriveLetter) already off"; continue }
+        try { [IO.File]::SetAttributes($root, ($attr -bor $flag)) }
+        catch { Write-Warn "$($v.DriveLetter): could not change the root folder ($($_.Exception.Message)). Untick the box in the drive's Properties."; continue }
+        # The WMI value too, so tools that read it agree; its result is not trusted.
+        try { Set-CimInstance -InputObject $v -Property @{ IndexingEnabled = $false } -ErrorAction Stop } catch { }
+        if (([IO.File]::GetAttributes($root) -band $flag) -eq $flag) { Write-Ok "$($v.DriveLetter) contents indexing off" }
+        else { Write-Warn "$($v.DriveLetter): still allowed after the change. Untick the box in the drive's Properties." }
     }
 }
 

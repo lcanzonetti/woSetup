@@ -233,11 +233,26 @@ $Checks = [ordered]@{
     }
 
     'media-indexing-off' = {
+        # Guide 10.15, per drive: Properties > "Allow files on this drive to have
+        # contents indexed". Read from the NotContentIndexed attribute (0x2000,
+        # "not to be indexed by the content indexing service") of the drive's
+        # root folder: unticked box = attribute set. [Uncertain] that this is
+        # exactly what Explorer shows; owner test pending. Win32_Volume
+        # .IndexingEnabled, used before, said "off" while the box was still
+        # ticked (owner, Oct 2026), so it is only reported as a note.
         $vols = @(Get-CimInstance Win32_Volume -Filter 'DriveType=3' | Where-Object { $_.DriveLetter -and $_.DriveLetter -ne $env:SystemDrive })
         if (-not $vols) { return New-Check 'NotApplicable' 'No fixed drive besides the system drive.' }
-        $on = @($vols | Where-Object { $_.IndexingEnabled })
-        if ($on) { return New-Check 'NotDone' "Indexing on: $(($on | ForEach-Object { $_.DriveLetter }) -join ', ')." }
-        New-Check 'Done' "Indexing off on $(($vols | ForEach-Object { $_.DriveLetter }) -join ', ')."
+        $flag = [IO.FileAttributes]::NotContentIndexed
+        $on = @(); $off = @(); $notes = @()
+        foreach ($v in $vols) {
+            $root = "$($v.DriveLetter)\"
+            $isOff = ([IO.File]::GetAttributes($root) -band $flag) -eq $flag
+            if ($isOff) { $off += $v.DriveLetter } else { $on += $v.DriveLetter }
+            if ([bool]$v.IndexingEnabled -eq $isOff) { $notes += "$($v.DriveLetter) WMI IndexingEnabled = $($v.IndexingEnabled)" }
+        }
+        $note = if ($notes) { " (WMI disagrees: $($notes -join ', '))" } else { '' }
+        if ($on) { return New-Check 'NotDone' "Contents indexing still allowed on $($on -join ', ')$(if ($off) { "; off on $($off -join ', ')" }).$note" }
+        New-Check 'Done' "Contents indexing off on $($off -join ', ') (root folder attribute).$note"
     }
 
     'disks-healthy' = {

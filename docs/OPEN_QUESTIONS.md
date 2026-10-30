@@ -537,3 +537,22 @@ the feature-version pin and `-PinVersion`, and the update-notification
 policy. Machines prepared with an earlier version keep those values in
 their Local GPO until removed by hand (re-running does not undo them).
 
+## 28. Per-drive indexing check (new)
+
+**Finding (owner, Oct 2026):** the wizard reported indexing off while a data
+drive's Properties still had "Allow files on this drive to have contents
+indexed" ticked. The check read `Win32_Volume.IndexingEnabled` (and the
+final step only checked the Windows Search service).
+
+**Change:** the check and the action now use the root folder's
+`NotContentIndexed` attribute (`FILE_ATTRIBUTE_NOT_CONTENT_INDEXED`, 0x2000;
+Microsoft: "The file or directory is not to be indexed by the content
+indexing service"). The WMI value is shown only when it disagrees. Section 8
+gets its own per-drive step (WO7-08.10a) next to the Windows Search service
+step.
+
+**[Uncertain]:** no fetched source confirmed that Explorer's box shows the
+root attribute. **Needed from the owner:** on the machine where the box was
+unticked by hand, "Check now" on WO7-03.3 should say "off"; tick it again
+and the check should say "still allowed".
+
