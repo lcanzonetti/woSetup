@@ -248,9 +248,9 @@
         },
         {
           "id": "WO6-02.2",
-          "title": "RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas)",
+          "title": "RAID driver installed, if the machine has a RAID controller",
           "kind": "manual",
-          "details": "pnputil /enum-drivers. Not applicable when the machine has no RAID controller.",
+          "details": "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) [Uncertain on real RAID hardware].",
           "roles": [
             "Display",
             "Production"
@@ -258,16 +258,17 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": false,
+          "uncertain": true,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false
+          "informational": false,
+          "check": "raid-driver"
         },
         {
           "id": "WO6-02.3",
-          "title": "RAID management app installed",
+          "title": "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID",
           "kind": "manual",
-          "details": "RAIDXpert2 (AMD) or the Broadcom tool.",
+          "details": "",
           "roles": [
             "Display",
             "Production"

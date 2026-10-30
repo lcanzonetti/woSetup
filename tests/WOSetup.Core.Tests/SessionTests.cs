@@ -257,6 +257,8 @@ public sealed class SessionTests : IDisposable
         Assert.Equal(CheckState.Done, CheckResult.FromAudits("x", [("PreUpdate", ok)]).State);
         Assert.Equal(CheckState.NotDone, CheckResult.FromAudits("x", [("PreUpdate", ok), ("PostInstall", gap)]).State);
         Assert.Contains("TdrDelay", CheckResult.FromAudits("x", [("PostInstall", gap)]).Detail);
+        var partial = new EngineResult { Status = "Completed", Audit = [new AuditEntry { State = "Set" }, new AuditEntry { State = "Set" }, new AuditEntry { State = "NotSet", Item = "7.3.2 prompt" }] };
+        Assert.StartsWith("Audit: 2 item(s) already set, 1 NOT set: PreUpdate: 7.3.2 prompt", CheckResult.FromAudits("x", [("PreUpdate", partial)]).Detail);
         Assert.Equal(CheckState.CantCheck, CheckResult.FromAudits("x", [("PostInstall", bad)]).State);
         Assert.Equal(CheckState.CantCheck, CheckResult.FromAudits("x", [("PostInstall", null)]).State);
     }

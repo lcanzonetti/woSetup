@@ -489,6 +489,13 @@ Each needs a test on a VM, the **[Uncertain]** ones on real hardware:
   reliable check from Windows; the operator confirms (one list for steps
   done earlier).
 
+- **[Uncertain] Generic RAID driver check** (`raid-driver`, added on the
+  owner's request after the AMD-only steps were dropped): a RAID controller
+  is any device with PCI class 01/04 or a storage controller named "RAID";
+  "not done" when one has no working driver or runs on a Microsoft driver.
+  Not yet confirmed on AMD RAIDXpert2 or Broadcom MegaRAID hardware; the
+  Microsoft-driver rule may flag a controller whose inbox driver is fine.
+
 **Needed from the owner:** test results per item.
 
 **Owner decision (Oct 2026):** the four detections that depended on

@@ -6,7 +6,7 @@ Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (M
 
 ## Before you start
 
-This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the AMD RAID package with RAIDXpert2, chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
+This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
 
 ## 1. First boot, still offline
 
@@ -22,8 +22,8 @@ Keep the network cable unplugged until driver search is locked, or Windows Updat
 ## 2. Updates and drivers
 
 - [ ] Windows Update: install everything, reboot, repeat until nothing is left
-- [ ] RAID: `pnputil /enum-drivers | findstr /i /c:"rcbottom" /c:"rcraid" /c:"rccfg"` shows all three
-- [ ] Install the AMD RAID package with RAIDXpert2 (same driver version you loaded in Setup)
+- [ ] RAID driver, if the machine has a RAID controller: install the vendor's package (same driver version you loaded in Setup); Device Manager > Storage controllers shows it without a warning
+- [ ] RAID management app (RAIDXpert2, Broadcom tool...), if the machine has RAID
 - [ ] Chipset and storage drivers
 - [ ] NVIDIA driver at the version tested for your WATCHOUT release
 - [ ] Capture and audio drivers; test each in the vendor's own app
@@ -35,7 +35,7 @@ Windows 11 24H2 and later turn on device encryption by default; a BIOS or RAID c
 - [ ] `manage-bde -status C:` → if not "Fully Decrypted", run `manage-bde -off C:` and wait
 - [ ] Disk Management: initialise the RAID0 as GPT, format NTFS (64 KB allocation unit optional)
 - [ ] Turn off indexing on the RAID0 drive
-- [ ] RAIDXpert2: array healthy; write-back cache and read-ahead optional
+- [ ] RAID management app: array healthy; write-back cache and read-ahead optional
 
 ## 4. WinUtil debloat
 

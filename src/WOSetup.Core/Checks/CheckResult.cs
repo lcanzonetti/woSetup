@@ -35,13 +35,14 @@ public sealed record CheckResult(string Id, CheckState State, string Detail)
             if (r.Failed) return new CheckResult(id, CheckState.CantCheck, $"The {phase} audit failed: {r.Fatal}");
             notSet.AddRange(r.Audit.Where(a => a.State == "NotSet").Select(a => $"{phase}: {a.Item}"));
         }
+        var set = audits.Sum(a => a.Result!.AuditCount("Set"));
         if (notSet.Count == 0)
-        {
-            var set = audits.Sum(a => a.Result!.AuditCount("Set"));
             return new CheckResult(id, CheckState.Done, $"Audit: {set} item(s) set, none missing.");
-        }
+        // Say what was found as well as what is missing: a step done partly by
+        // hand (e.g. two of the three PreUpdate settings) must not read as "nothing found".
         var first = string.Join("; ", notSet.Take(5));
         return new CheckResult(id, CheckState.NotDone,
-            $"Audit: {notSet.Count} item(s) not set ({first}{(notSet.Count > 5 ? "; ..." : "")}).");
+            $"Audit: {set} item(s) already set, {notSet.Count} NOT set: {first}{(notSet.Count > 5 ? $"; ... ({notSet.Count - 5} more in the audit list)" : "")}. " +
+            "Running the step sets only what is missing.");
     }
 }

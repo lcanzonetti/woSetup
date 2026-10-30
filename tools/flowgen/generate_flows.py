@@ -147,10 +147,13 @@ def wo7():
                  "Settings > Windows Update (ms-settings:windowsupdate). Driver updates are excluded by PreUpdate. "
                  "Check: shows the last installed update and whether a restart is pending (it cannot tell if more updates exist).",
                  check="updates", internet=True),
-            step("WO7-02.2", "AMD RAID drivers rcbottom, rcraid and rccfg all present", "manual",
-                 "pnputil /enum-drivers. Not applicable when the machine has no AMD RAID. rccfg is not always carried "
-                 "over from Windows Setup [Uncertain]: this is how you find out.", uncertain=True),
-            step("WO7-02.3", "Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup)", "manual"),
+            step("WO7-02.2", "RAID driver installed, if the machine has a RAID controller", "manual",
+                 "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver "
+                 "package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. "
+                 "Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) "
+                 "[Uncertain on real RAID hardware].",
+                 check="raid-driver", uncertain=True),
+            step("WO7-02.3", "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID", "manual"),
             step("WO7-02.4", "Chipset and storage drivers", "manual"),
             step("WO7-02.5", "NVIDIA driver at the version tested for your WATCHOUT release", "manual",
                  "Check: an NVIDIA driver is installed and shows its version (compare it with the release notes).",
@@ -163,8 +166,8 @@ def wo7():
             step("WO7-03.3", "Indexing off on the media drive", "automated",
                  "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C:.",
                  check="media-indexing-off", action=command("indexing-off")),
-            step("WO7-03.4", "RAIDXpert2: array healthy; write-back cache and read-ahead optional", "manual",
-                 "Check: Windows reports every disk online and healthy (RAIDXpert2 itself is the reference).",
+            step("WO7-03.4", "RAID management app: array healthy; write-back cache and read-ahead optional", "manual",
+                 "Check: Windows reports every disk online and healthy (the RAID app itself is the reference).",
                  check="disks-healthy"),
         ]},
         winutil(p, False),
@@ -251,10 +254,13 @@ def wo6():
             step("WO6-02.1", "Windows Update: install everything, restart, repeat until nothing is left", "manual",
                  "Settings > Windows Update (ms-settings:windowsupdate). Check: last installed update and pending restart.",
                  check="updates", internet=True),
-            step("WO6-02.2", "RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas)", "manual",
-                 "pnputil /enum-drivers. Not applicable when the machine has no RAID controller."),
-            step("WO6-02.3", "RAID management app installed", "manual",
-                 "RAIDXpert2 (AMD) or the Broadcom tool."),
+            step("WO6-02.2", "RAID driver installed, if the machine has a RAID controller", "manual",
+                 "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver "
+                 "package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. "
+                 "Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) "
+                 "[Uncertain on real RAID hardware].",
+                 check="raid-driver", uncertain=True),
+            step("WO6-02.3", "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID", "manual"),
             step("WO6-02.4", "Chipset and storage drivers", "manual"),
             step("WO6-02.5", "NVIDIA driver at the version tested with your WATCHOUT 6 release", "manual", check="nvidia-driver"),
             step("WO6-02.6", "Capture and audio drivers; test each card in its vendor app before WATCHOUT", "manual"),

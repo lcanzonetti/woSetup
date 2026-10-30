@@ -248,9 +248,9 @@
         },
         {
           "id": "WO7-02.2",
-          "title": "AMD RAID drivers rcbottom, rcraid and rccfg all present",
+          "title": "RAID driver installed, if the machine has a RAID controller",
           "kind": "manual",
-          "details": "pnputil /enum-drivers. Not applicable when the machine has no AMD RAID. rccfg is not always carried over from Windows Setup [Uncertain]: this is how you find out.",
+          "details": "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) [Uncertain on real RAID hardware].",
           "roles": [
             "Display",
             "Production"
@@ -261,11 +261,12 @@
           "uncertain": true,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false
+          "informational": false,
+          "check": "raid-driver"
         },
         {
           "id": "WO7-02.3",
-          "title": "Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup)",
+          "title": "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID",
           "kind": "manual",
           "details": "",
           "roles": [
@@ -407,9 +408,9 @@
         },
         {
           "id": "WO7-03.4",
-          "title": "RAIDXpert2: array healthy; write-back cache and read-ahead optional",
+          "title": "RAID management app: array healthy; write-back cache and read-ahead optional",
           "kind": "manual",
-          "details": "Check: Windows reports every disk online and healthy (RAIDXpert2 itself is the reference).",
+          "details": "Check: Windows reports every disk online and healthy (the RAID app itself is the reference).",
           "roles": [
             "Display",
             "Production"

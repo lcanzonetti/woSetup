@@ -38,8 +38,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
 | WO7-02.1 | Windows Update: install everything, restart, repeat until nothing is left | Manual | `updates` | needs internet |
-| WO7-02.2 | AMD RAID drivers rcbottom, rcraid and rccfg all present | Manual | — | [Uncertain] |
-| WO7-02.3 | Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup) | Manual | — |  |
+| WO7-02.2 | RAID driver installed, if the machine has a RAID controller | Manual | `raid-driver` | [Uncertain] |
+| WO7-02.3 | RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID | Manual | — |  |
 | WO7-02.4 | Chipset and storage drivers | Manual | — |  |
 | WO7-02.5 | NVIDIA driver at the version tested for your WATCHOUT release | Manual | `nvidia-driver` |  |
 | WO7-02.6 | Capture and audio drivers; test each in the vendor's own app | Manual | — |  |
@@ -51,7 +51,7 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-03.1 | BitLocker / device encryption off | Automatic — bitlocker-off | `bitlocker-off` | 🔒 |
 | WO7-03.2 | Media drive: initialise GPT, format NTFS | Automatic — media-disk-init | `media-volume` | 🔒 |
 | WO7-03.3 | Indexing off on the media drive | Automatic — indexing-off | `media-indexing-off` |  |
-| WO7-03.4 | RAIDXpert2: array healthy; write-back cache and read-ahead optional | Manual | `disks-healthy` |  |
+| WO7-03.4 | RAID management app: array healthy; write-back cache and read-ahead optional | Manual | `disks-healthy` |  |
 
 ### 4. WinUtil debloat
 
@@ -151,8 +151,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
 | WO6-02.1 | Windows Update: install everything, restart, repeat until nothing is left | Manual | `updates` | needs internet |
-| WO6-02.2 | RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas) | Manual | — |  |
-| WO6-02.3 | RAID management app installed | Manual | — |  |
+| WO6-02.2 | RAID driver installed, if the machine has a RAID controller | Manual | `raid-driver` | [Uncertain] |
+| WO6-02.3 | RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID | Manual | — |  |
 | WO6-02.4 | Chipset and storage drivers | Manual | — |  |
 | WO6-02.5 | NVIDIA driver at the version tested with your WATCHOUT 6 release | Manual | `nvidia-driver` |  |
 | WO6-02.6 | Capture and audio drivers; test each card in its vendor app before WATCHOUT | Manual | — |  |

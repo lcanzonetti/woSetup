@@ -157,6 +157,30 @@ $Checks = [ordered]@{
         New-Check 'CantCheck' "$text Whether more updates are available can only be seen in Windows Update."
     }
 
+    'raid-driver' = {
+        # Any RAID controller Windows sees: PCI class 01/04 ("RAID bus
+        # controller", also reported by devices with no driver yet) or a
+        # storage controller whose name says RAID. Vendor-neutral (AMD
+        # RAIDXpert2, Broadcom MegaRAID, ...). [Uncertain] on real RAID hardware.
+        $devs = @(Get-CimInstance Win32_PnPEntity | Where-Object {
+                $ids = @($_.CompatibleID) + @($_.HardwareID)
+                (@($ids | Where-Object { "$_" -match 'CC_0104' }).Count -gt 0) -or
+                ("$($_.PNPClass)" -in @('SCSIAdapter', 'HDC') -and "$($_.Name)" -match 'RAID') })
+        if (-not $devs) { return New-Check 'NotApplicable' 'Windows sees no RAID controller. If this machine uses RAID, look in Device Manager > Storage controllers.' }
+        $bad = @($devs | Where-Object { $_.ConfigManagerErrorCode -ne 0 })
+        if ($bad) {
+            return New-Check 'NotDone' "Install the RAID driver: $(($bad | ForEach-Object { "$(if ($_.Name) { $_.Name } else { $_.DeviceID }) (device error $($_.ConfigManagerErrorCode))" }) -join '; ')."
+        }
+        $drv = @(Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceID -in @($devs | ForEach-Object { $_.DeviceID }) })
+        $text = @($devs | ForEach-Object {
+                $id = $_.DeviceID
+                $dv = $drv | Where-Object { $_.DeviceID -eq $id } | Select-Object -First 1
+                if ($dv) { "$($_.Name): $($dv.DriverProviderName) $($dv.DriverVersion)" } else { "$($_.Name)" } })
+        $inbox = @($drv | Where-Object { "$($_.DriverProviderName)" -match '^Microsoft' })
+        if ($inbox) { return New-Check 'NotDone' "Running on Windows' own driver: $($text -join '; '). Install the RAID vendor's driver package." }
+        New-Check 'Done' "$($text -join '; ')."
+    }
+
     'nvidia-driver' = {
         $gpus = @(Get-CimInstance Win32_VideoController)
         $nv = @($gpus | Where-Object { $_.Name -match 'NVIDIA' })
@@ -184,18 +208,28 @@ $Checks = [ordered]@{
     }
 
     'media-volume' = {
+        # Done when any internal non-system disk has an NTFS volume on GPT. Other
+        # empty (RAW) disks do not make it "not done": they are listed as a note.
         $disks = @(Get-Disk | Where-Object { -not $_.IsBoot -and -not $_.IsSystem -and "$($_.BusType)" -notin @('USB', 'SD', 'MMC') })
         if (-not $disks) { return New-Check 'NotApplicable' 'No second internal disk.' }
-        $raw = @($disks | Where-Object { "$($_.PartitionStyle)" -eq 'RAW' })
-        $ntfs = @($disks | Where-Object { "$($_.PartitionStyle)" -eq 'GPT' } | ForEach-Object {
-            $d = $_
-            Get-Partition -DiskNumber $d.Number -ErrorAction SilentlyContinue | Get-Volume -ErrorAction SilentlyContinue |
-                Where-Object { $_.FileSystem -eq 'NTFS' } |
-                ForEach-Object { "disk $($d.Number): $($_.DriveLetter): $($_.FileSystemLabel) $([math]::Round($_.Size / 1GB)) GB, $($_.AllocationUnitSize / 1KB) KB clusters" }
-        })
-        if ($raw) { return New-Check 'NotDone' "Not initialised: $(($raw | ForEach-Object { "disk $($_.Number) ($($_.FriendlyName), $([math]::Round($_.Size / 1GB)) GB)" }) -join ', ')." }
-        if ($ntfs) { return New-Check 'Done' ($ntfs -join '; ') }
-        New-Check 'NotDone' 'The second disk has no GPT/NTFS volume.'
+        $ok = @(); $other = @()
+        foreach ($d in $disks) {
+            $name = "disk $($d.Number) ($($d.FriendlyName), $([math]::Round($d.Size / 1GB)) GB)"
+            $vols = @(Get-Partition -DiskNumber $d.Number -ErrorAction SilentlyContinue | Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.FileSystem })
+            $ntfs = @($vols | Where-Object { $_.FileSystem -eq 'NTFS' })
+            if ("$($d.PartitionStyle)" -eq 'GPT' -and $ntfs) {
+                $ok += @($ntfs | ForEach-Object { "$name $($_.DriveLetter): '$($_.FileSystemLabel)' NTFS, $($_.AllocationUnitSize / 1KB) KB clusters" })
+            }
+            elseif ("$($d.PartitionStyle)" -eq 'RAW') { $other += "$name not initialised" }
+            elseif ($ntfs) { $other += "$name NTFS but $($d.PartitionStyle), not GPT" }
+            elseif ($vols) { $other += "$name $($d.PartitionStyle), $(($vols | ForEach-Object { $_.FileSystem }) -join '/') (not NTFS)" }
+            else { $other += "$name $($d.PartitionStyle), no formatted volume" }
+        }
+        if ($ok) {
+            $note = if ($other) { " Also: $($other -join '; ')." } else { '' }
+            return New-Check 'Done' "$($ok -join '; ').$note"
+        }
+        New-Check 'NotDone' "No GPT/NTFS media volume: $($other -join '; ')."
     }
 
     'media-indexing-off' = {

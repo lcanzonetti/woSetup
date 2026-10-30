@@ -24,7 +24,8 @@ The Dataton guide wants the machine offline during setup. Keep the cable unplugg
 The 2018 guide installs only hand-picked updates; on a 25H2 base, install the current cumulative update once, then freeze.
 
 - [ ] Windows Update: install everything, reboot, repeat until nothing is left
-- [ ] RAID drivers present (AMD: `pnputil /enum-drivers | findstr /i /c:"rcbottom" /c:"rcraid" /c:"rccfg"`), then the RAID management app
+- [ ] RAID driver, if the machine has a RAID controller: install the vendor's package (same driver version you loaded in Setup); Device Manager > Storage controllers shows it without a warning
+- [ ] RAID management app (RAIDXpert2, Broadcom tool...), if the machine has RAID
 - [ ] Chipset and storage drivers
 - [ ] NVIDIA driver at the tested version
 - [ ] Capture and audio drivers; test each card in its vendor app before WATCHOUT
