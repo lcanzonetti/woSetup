@@ -136,3 +136,25 @@ Describe 'Result file of <_>' -ForEach @('WO7-Setup.ps1', 'WO6-Setup.ps1') {
         $json.parameters.Audit | Should -BeTrue
     }
 }
+
+# The one machine-changing action run in CI: it only sets the
+# "not content indexed" attribute on the runner's data drive root (a
+# throwaway VM), then the check must read it back.
+Describe 'Indexing off on the data drives (action + check)' {
+    It 'sets the root folder attribute and the check reports it' {
+        $data = @(Get-CimInstance Win32_Volume -Filter 'DriveType=3' | Where-Object { $_.DriveLetter -and $_.DriveLetter -ne $env:SystemDrive })
+        $result = Join-Path $work 'indexing-off.json'
+        & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $actionsPs1 -Action 'indexing-off' -ResultPath $result | Out-Host
+        $LASTEXITCODE | Should -Be 0
+        (Get-Content -Raw $result | ConvertFrom-Json).Status | Should -Be 'Completed'
+        $check = (Invoke-Checks -ProfileName 'WO7' -Ids @('media-indexing-off')).Results[0]
+        Write-Host "    media-indexing-off: $($check.State) - $($check.Detail)"
+        if ($data) {
+            foreach ($v in $data) {
+                ([IO.File]::GetAttributes("$($v.DriveLetter)\") -band [IO.FileAttributes]::NotContentIndexed) | Should -Be ([IO.FileAttributes]::NotContentIndexed)
+            }
+            $check.State | Should -Be 'Done'
+        }
+        else { $check.State | Should -Be 'NotApplicable' }
+    }
+}
