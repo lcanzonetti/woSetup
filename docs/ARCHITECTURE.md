@@ -266,7 +266,6 @@ Location: `%ProgramData%\WOSetupWizard\state.json` (AGENTS.md).
     "DefenderMode": "Off",
     "KeepFirewall": false,
     "KeepUpdateService": false,
-    "PinVersion": null,
     "WatchoutPath": null,
     "WorkingDirectory": "E:\\WO7-Work"
   },
@@ -475,7 +474,7 @@ shown as a warning). Format (UTF-8 without BOM; example from an apply run):
   "parameters": { "Phase": "PostInstall", "Role": "Display", "DefenderMode": "Off",
                   "KeepFirewall": false, "KeepServices": false,
                   "KeepService": ["TermService", "SessionEnv", "UmRdpService"],
-                  "KeepAdapterBindings": false, "PinVersion": null,
+                  "KeepAdapterBindings": false,
                   "KeepUpdateService": false, "ForcePcieLinkSpeed": false,
                   "StartDelay": 8, "WatchoutPath": null, "ShowsPath": null },
   "warnings": ["Tamper Protection is ON: ..."],

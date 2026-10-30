@@ -79,7 +79,7 @@ Applies the whole tweaking guide that Windows 11 still honours: chapter 7 GPOs, 
 | --- | --- |
 | Firewall off (or program rules with -KeepFirewall) | 7.1 |
 | All Administrative Templates policies, Win11-adapted | 7.3–7.7 |
-| Updates: automatic off, version pinned, notifications off; BITS, wuauserv, UsoSvc and update tasks disabled | 7.4.11 |
+| Updates off with WinUtil's "Disable all updates" steps: automatic off, Delivery Optimization off, BITS, wuauserv, UsoSvc and update tasks disabled | 7.4.11 (WinUtil method) |
 | Power plan "WATCHOUT 6", hibernation, disk/display never, USB suspend off | 4, 10.5 |
 | PCIe link power management off (AMD/NVMe equivalent of RST setting) | 10.6 |
 | IPv4-only bindings on physical adapters | 10.10 |
@@ -97,9 +97,9 @@ Applies the whole tweaking guide that Windows 11 still honours: chapter 7 GPOs, 
 | `-KeepAdapterBindings` | Machine needs file shares or IPv6 |
 | `-KeepFirewall` | Firewall stays on with WATCHOUT 6 program rules |
 | `-DefenderMode Exclusions` | Keep Defender on, WATCHOUT folders and programs excluded |
-| `-KeepUpdateService` | Keep the Windows Update services and tasks running (default: fully disabled, as WinUtil and guide ch. 11) |
+| `-KeepUpdateService` | Keep the Windows Update services and tasks running (default: fully disabled with WinUtil's "Disable all updates" steps) |
 | `-ForcePcieLinkSpeed` | AMD GPU only; can crash some AMD drivers at boot |
-| `-WatchoutPath`, `-PinVersion` | Install not auto-detected / pin a different version |
+| `-WatchoutPath` | Install not auto-detected |
 
 ## 7. Manual steps
 

@@ -84,7 +84,7 @@ Already handled elsewhere: group policies (ch. 7), AutoPlay (10.1), power plan a
 
 ## 7. PostInstall
 
-Applies power plan, NIC power settings, network location, notifications, the chapter 10 settings and indexing off (section 6), the Dataton chapter 7 GPO set (Win11-adapted), the update freeze (automatic updates off, version pinned, notifications off, update services and tasks disabled), the chapter 12 registry values and Defender settings.
+Applies power plan, NIC power settings, network location, notifications, the chapter 10 settings and indexing off (section 6), the Dataton chapter 7 GPO set (Win11-adapted), Windows Update off with WinUtil's "Disable all updates" steps (automatic updates and Delivery Optimization off, update services and tasks disabled, downloaded updates cleared), the chapter 12 registry values and Defender settings.
 
 - [ ] Windows Security → Virus & threat protection → Manage settings → **Tamper Protection Off**
 - [ ] Elevated, from the show account: `.\WO7-Setup.ps1 -Phase PostInstall`
@@ -97,8 +97,7 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 | `-Role Production` | Production PC: skips Ctrl+Alt+Del and thumbnail policies |
 | `-DefenderMode Exclusions` | Keep Defender on, exclude WATCHOUT folders and processes |
 | `-WorkingDirectory <path>` | Working directory is not the default `.wo` folder |
-| -PinVersion 25H2 | Pin to a version other than the one installed (default: installed version) |
-| -KeepUpdateService | Keep the Windows Update services and tasks running (default: fully disabled, as WinUtil's "Disable all updates") |
+| -KeepUpdateService | Keep the Windows Update services and tasks running (default: fully disabled with WinUtil's "Disable all updates" steps) |
 
 ## 8. Verify, soak test, image
 

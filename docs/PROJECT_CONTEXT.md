@@ -110,11 +110,14 @@ or real hardware.
 - Network location forced Private; `NewNetworkWindowOff` key suppresses the flyout.
 - **Windows Update: fully disabled by default** (owner's decision: servers are
   never patched in place; a newer OS is reinstalled from a fresh ISO).
-  Same steps as WinUtil "Disable all updates": NoAutoUpdate + AUOptions 1,
-  DODownloadMode 0, BITS/wuauserv/UsoSvc disabled (CSV backup),
-  SoftwareDistribution cleared, update scheduled tasks disabled; plus version
-  pin (TargetReleaseVersion/ProductVersion/TargetReleaseVersionInfo) and
-  update notifications off. `-KeepUpdateService` opts out. Side effects:
+  Exactly WinUtil's "Disable all updates" steps (owner decision, Oct 2026;
+  WinUtil `Invoke-WPFUpdatesdisable.ps1`, checked 30 Oct 2026): NoAutoUpdate
+  and AUOptions 1 written straight to the registry, DODownloadMode 0,
+  BITS/wuauserv/UsoSvc disabled (CSV backup added by the script),
+  SoftwareDistribution cleared, update scheduled tasks disabled. The earlier
+  extras (guide 7.4.11.1 / 7.4.11.3 policies, feature-version pin,
+  update-notification policy, `-PinVersion`) were dropped.
+  `-KeepUpdateService` keeps the services and tasks. Side effects:
   Settings → Windows Update and Activation pages show 0x80070422; check
   activation with `slmgr /xpr`. WaaSMedicSvc (protected) may re-enable
   wuauserv — re-check after reboot.

@@ -71,7 +71,7 @@ it to `docs/OPEN_QUESTIONS.md` instead of implementing it.
 - **Logs**: one folder per machine under `%ProgramData%\WOSetupWizard\logs\`,
   including each script transcript, plus an "export support bundle" button.
 - **Options** map 1:1 to script parameters (`-Role`, `-DefenderMode`,
-  `-KeepFirewall`, `-KeepUpdateService`, `-PinVersion`, WO7 `-WorkingDirectory`,
+  `-KeepFirewall`, `-KeepUpdateService`, WO7 `-WorkingDirectory`,
   WO6 `-ShowsPath`, `-StartDelay`, `-KeepServices`, `-KeepService`,
   `-KeepAdapterBindings`, `-ForcePcieLinkSpeed`, `-WatchoutPath`).
 
