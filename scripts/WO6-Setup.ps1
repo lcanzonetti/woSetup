@@ -311,7 +311,10 @@ function Add-BackupRecord([string]$Kind, [string]$Path, [string]$Restore) {
 
 function Get-RunParameters {
     # Effective values, defaults included; switches as true/false.
-    [ordered]@{
+    # A [pscustomobject], not an [ordered] dictionary: a dictionary returned
+    # from a function arrives wrapped in a PSObject, and Windows PowerShell
+    # 5.1's ConvertTo-Json then fails with "Argument types do not match".
+    [pscustomobject]@{
         Phase               = $Phase
         Audit               = [bool]$Audit
         Role                = $Role
@@ -347,10 +350,10 @@ function Write-ResultFile([string]$Status) {
             computerName  = $env:COMPUTERNAME
             userName      = "$env:USERDOMAIN\$env:USERNAME"
             parameters    = Get-RunParameters
-            warnings      = @($script:Warnings)
-            backups       = @($script:Backups)
-            audit         = @($script:AuditItems)
-            lgpo          = [ordered]@{ used = $script:LgpoUsed; textFile = $script:LgpoTextFile }
+            warnings      = [string[]]$script:Warnings.ToArray()
+            backups       = [object[]]$script:Backups.ToArray()
+            audit         = [object[]]$script:AuditItems.ToArray()
+            lgpo          = [pscustomobject]@{ used = $script:LgpoUsed; textFile = $script:LgpoTextFile }
             transcript    = $script:TranscriptPath
         }
         $json = ConvertTo-Json -InputObject $result -Depth 5
