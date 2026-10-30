@@ -99,3 +99,40 @@ Describe 'WO-Actions.ps1 read-only queries' {
         $q.Result.Status | Should -Be 'Failed'
     }
 }
+
+# The setup scripts' result file (-ResultPath), written at the end of every
+# run. Exercised with -Audit, which is read-only, on a copy of each script
+# (the transcript is written next to the script).
+Describe 'Result file of <_>' -ForEach @('WO7-Setup.ps1', 'WO6-Setup.ps1') {
+
+    BeforeAll {
+        $name = $_
+        $dir = Join-Path $work ("result-" + [IO.Path]::GetFileNameWithoutExtension($name))
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        $copy = Join-Path $dir $name
+        Copy-Item (Join-Path $PSScriptRoot "..\..\scripts\$name") $copy
+
+        function Invoke-Audit([string]$Phase) {
+            $result = Join-Path $dir "result-$Phase.json"
+            $out = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $copy -Phase $Phase -Audit -ResultPath $result 2>&1
+            $out | Out-Host
+            [pscustomobject]@{
+                Exit       = $LASTEXITCODE
+                Path       = $result
+                NotWritten = @($out | Where-Object { "$_" -match 'Result file not written' })
+            }
+        }
+    }
+
+    It 'writes a readable result file for <Phase>' -ForEach @(@{ Phase = 'PreUpdate' }, @{ Phase = 'PostInstall' }) {
+        $r = Invoke-Audit $Phase
+        $r.NotWritten | Should -BeNullOrEmpty
+        Test-Path $r.Path | Should -BeTrue
+        $json = Get-Content -Raw $r.Path | ConvertFrom-Json
+        $json.schemaVersion | Should -Be 2
+        $json.phase | Should -Be $Phase
+        $json.mode | Should -Be 'Audit'
+        $json.parameters.Phase | Should -Be $Phase
+        $json.parameters.Audit | Should -BeTrue
+    }
+}
