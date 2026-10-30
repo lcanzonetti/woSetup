@@ -388,7 +388,7 @@
           "id": "WO7-03.3",
           "title": "Indexing off on the media drive",
           "kind": "automated",
-          "details": "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C:.",
+          "details": "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C: (as Explorer's \"Apply changes to this drive only\"). Check: the drive's root folder carries the \"not content indexed\" attribute [Uncertain: confirm it matches the box in the drive's Properties].",
           "roles": [
             "Display",
             "Production"
@@ -396,7 +396,7 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": false,
+          "uncertain": true,
           "optionsStep": false,
           "autoDone": false,
           "informational": false,
@@ -971,9 +971,9 @@
         },
         {
           "id": "WO7-08.10",
-          "title": "Windows Search service disabled: no indexing (10.15)",
+          "title": "Windows Search service disabled (10.15)",
           "kind": "check",
-          "details": "",
+          "details": "The indexing service itself. The per-drive box is checked in the next step.",
           "roles": [
             "Display",
             "Production"
@@ -986,6 +986,24 @@
           "autoDone": false,
           "informational": false,
           "check": "wsearch-disabled"
+        },
+        {
+          "id": "WO7-08.10a",
+          "title": "Contents indexing off on every data drive (10.15, per drive)",
+          "kind": "check",
+          "details": "Same check as step 3.3: \"Allow files on this drive to have contents indexed\" unticked on every fixed drive except C: [Uncertain].",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": true,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "media-indexing-off"
         },
         {
           "id": "WO7-08.11",

@@ -172,8 +172,10 @@ def wo7():
             step("WO7-03.1", *BITLOCKER, check="bitlocker-off", action=command("bitlocker-off"), confirm=True),
             step("WO7-03.2", *MEDIA, check="media-volume", action=command("media-disk-init"), confirm=True),
             step("WO7-03.3", "Indexing off on the media drive", "automated",
-                 "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C:.",
-                 check="media-indexing-off", action=command("indexing-off")),
+                 "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C: "
+                 "(as Explorer's \"Apply changes to this drive only\"). Check: the drive's root folder carries the "
+                 "\"not content indexed\" attribute [Uncertain: confirm it matches the box in the drive's Properties].",
+                 check="media-indexing-off", action=command("indexing-off"), uncertain=True),
             step("WO7-03.4", "RAID management app: array healthy; write-back cache and read-ahead optional", "manual",
                  "Check: Windows reports every disk online and healthy (the RAID app itself is the reference).",
                  check="disks-healthy"),
@@ -242,7 +244,11 @@ def wo7():
                  "Open SystemPropertiesPerformance.exe once and look. UserPreferencesMask is [Uncertain].",
                  check="visual-effects", uncertain=True),
             step("WO7-08.9", "USB notifications off (10.12)", "check", check="usb-notify-off", uncertain=True),
-            step("WO7-08.10", "Windows Search service disabled: no indexing (10.15)", "check", check="wsearch-disabled"),
+            step("WO7-08.10", "Windows Search service disabled (10.15)", "check",
+                 "The indexing service itself. The per-drive box is checked in the next step.", check="wsearch-disabled"),
+            step("WO7-08.10a", "Contents indexing off on every data drive (10.15, per drive)", "check",
+                 "Same check as step 3.3: \"Allow files on this drive to have contents indexed\" unticked on every fixed "
+                 "drive except C: [Uncertain].", check="media-indexing-off", uncertain=True),
             step("WO7-08.11", "Full audit: both script phases report every item Set", "check",
                  "Read-only. Anything Not set is listed.", check="audit:Both"),
             step("WO7-08.12", "All nodes discover each other; asset transfer to the RAID0 works", "manual"),

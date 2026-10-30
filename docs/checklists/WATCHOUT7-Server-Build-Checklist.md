@@ -34,7 +34,7 @@ Windows 11 24H2 and later turn on device encryption by default; a BIOS or RAID c
 
 - [ ] `manage-bde -status C:` → if not "Fully Decrypted", run `manage-bde -off C:` and wait
 - [ ] Disk Management: initialise the RAID0 as GPT, format NTFS (64 KB allocation unit optional)
-- [ ] Turn off indexing on the RAID0 drive
+- [ ] Turn off indexing on the RAID0 drive: Properties → untick "Allow files on this drive to have contents indexed"
 - [ ] RAID management app: array healthy; write-back cache and read-ahead optional
 
 ## 4. WinUtil debloat
@@ -110,6 +110,7 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 - [ ] Open Performance Options (`SystemPropertiesPerformance.exe`) once and confirm "Adjust for best performance" is selected and every effect unticked (10.3)
 - [ ] Settings → Bluetooth & devices → USB: notifications shown as off (10.12)
 - [ ] `Get-Service WSearch` → StartType Disabled (10.15)
+- [ ] Each data drive → Properties: "Allow files on this drive to have contents indexed" unticked (10.15, per drive)
 - [ ] All nodes discover each other; asset transfer to the RAID0 works
 - [ ] Optional: secpol.msc → Network List Manager Policies → User cannot change location
 - [ ] Soak test: representative show for several hours on all outputs
