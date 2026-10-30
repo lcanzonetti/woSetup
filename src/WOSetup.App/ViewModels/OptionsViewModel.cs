@@ -18,7 +18,6 @@ public sealed partial class OptionsViewModel : ObservableObject
         _defenderMode = options.DefenderMode;
         _keepFirewall = options.KeepFirewall;
         _keepUpdateService = options.KeepUpdateService;
-        _pinVersion = options.PinVersion ?? "";
         _watchoutPath = options.WatchoutPath ?? "";
         _workingDirectory = options.WorkingDirectory ?? "";
         _showsPath = options.ShowsPath ?? "";
@@ -42,7 +41,6 @@ public sealed partial class OptionsViewModel : ObservableObject
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private DefenderMode _defenderMode;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private bool _keepFirewall;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private bool _keepUpdateService;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private string _pinVersion;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private string _watchoutPath;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private string _workingDirectory;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(Preview), nameof(Errors))] private string _showsPath;
@@ -76,7 +74,6 @@ public sealed partial class OptionsViewModel : ObservableObject
             DefenderMode = DefenderMode,
             KeepFirewall = KeepFirewall,
             KeepUpdateService = KeepUpdateService,
-            PinVersion = Blank(PinVersion),
             WatchoutPath = Blank(WatchoutPath),
             WorkingDirectory = Blank(WorkingDirectory),
             ShowsPath = Blank(ShowsPath),

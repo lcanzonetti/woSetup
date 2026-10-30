@@ -163,20 +163,18 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
-                                <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                                <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="-WatchoutPath" VerticalAlignment="Center" />
                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WatchoutPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" ToolTip="Empty = detected by the script" />
-                            <TextBlock Grid.Row="1" Text="-PinVersion" VerticalAlignment="Center" />
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PinVersion, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Width="120" HorizontalAlignment="Left" ToolTip="Empty = the version installed now, e.g. 25H2" />
-                            <TextBlock Grid.Row="2" Text="-WorkingDirectory (WO7)" VerticalAlignment="Center" Visibility="{Binding IsWO7, Converter={StaticResource BoolToVis}}" />
-                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding WorkingDirectory, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Visibility="{Binding IsWO7, Converter={StaticResource BoolToVis}}" ToolTip="Empty = the default .wo folder next to the install" />
-                            <TextBlock Grid.Row="3" Text="-ShowsPath (WO6)" VerticalAlignment="Center" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" />
-                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ShowsPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" ToolTip="Empty = Shows inside the install folder" />
-                            <TextBlock Grid.Row="4" Text="-StartDelay (WO6, s)" VerticalAlignment="Center" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" />
-                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StartDelay, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Width="80" HorizontalAlignment="Left" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" ToolTip="0-600, default 8" />
-                            <TextBlock Grid.Row="5" Text="-KeepService (WO6)" VerticalAlignment="Center" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" />
-                            <DockPanel Grid.Row="5" Grid.Column="1" Margin="0,3" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Grid.Row="1" Text="-WorkingDirectory (WO7)" VerticalAlignment="Center" Visibility="{Binding IsWO7, Converter={StaticResource BoolToVis}}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WorkingDirectory, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Visibility="{Binding IsWO7, Converter={StaticResource BoolToVis}}" ToolTip="Empty = the default .wo folder next to the install" />
+                            <TextBlock Grid.Row="2" Text="-ShowsPath (WO6)" VerticalAlignment="Center" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ShowsPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" ToolTip="Empty = Shows inside the install folder" />
+                            <TextBlock Grid.Row="3" Text="-StartDelay (WO6, s)" VerticalAlignment="Center" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StartDelay, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Width="80" HorizontalAlignment="Left" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" ToolTip="0-600, default 8" />
+                            <TextBlock Grid.Row="4" Text="-KeepService (WO6)" VerticalAlignment="Center" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}" />
+                            <DockPanel Grid.Row="4" Grid.Column="1" Margin="0,3" Visibility="{Binding IsWO6, Converter={StaticResource BoolToVis}}">
                                 <Button DockPanel.Dock="Right" Content="Keep Remote Desktop" Command="{Binding KeepRemoteDesktopCommand}" Margin="8,0,0,0" />
                                 <TextBox Text="{Binding KeepService, UpdateSourceTrigger=PropertyChanged}" ToolTip="Service names separated by commas, e.g. TermService, SessionEnv, UmRdpService" />
                             </DockPanel>

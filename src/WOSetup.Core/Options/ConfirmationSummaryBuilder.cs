@@ -38,9 +38,11 @@ public static class ConfirmationSummaryBuilder
             _ => "Microsoft Defender is not touched.",
         });
         lines.Add(o.KeepUpdateService
-            ? "Windows Update: automatic updates OFF, feature version pinned, notifications off. The update services keep running."
-            : "Windows Update will be DISABLED FOR GOOD: automatic updates off, version pinned, BITS / wuauserv / UsoSvc " +
-              "and update tasks disabled, downloaded updates deleted. No security updates from now on.");
+            ? "Windows Update: automatic updates OFF and Delivery Optimization off (WinUtil's registry values). " +
+              "The update services and tasks keep running, so manual updates stay possible."
+            : "Windows Update will be DISABLED FOR GOOD with WinUtil's \"Disable all updates\" steps: automatic updates off, " +
+              "Delivery Optimization off, BITS / wuauserv / UsoSvc and update tasks disabled, downloaded updates deleted. " +
+              "No security updates from now on; a restart completes it.");
         lines.Add("UAC set to \"Never notify\", Remote Assistance off, visual effects for best performance, no sounds, " +
                   "scheduled defrag off, USB and badge notifications off (guide ch. 10).");
         if (profile == Profile.WO7)

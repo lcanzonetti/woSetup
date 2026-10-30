@@ -17,7 +17,6 @@ public sealed class EngineOptions
     public DefenderMode DefenderMode { get; set; } = DefenderMode.Off;
     public bool KeepFirewall { get; set; }
     public bool KeepUpdateService { get; set; }
-    public string? PinVersion { get; set; }
     public string? WatchoutPath { get; set; }
 
     // WO7 only
@@ -34,7 +33,7 @@ public sealed class EngineOptions
     public EngineOptions Clone() => new()
     {
         DefenderMode = DefenderMode, KeepFirewall = KeepFirewall, KeepUpdateService = KeepUpdateService,
-        PinVersion = PinVersion, WatchoutPath = WatchoutPath, WorkingDirectory = WorkingDirectory,
+        WatchoutPath = WatchoutPath, WorkingDirectory = WorkingDirectory,
         ShowsPath = ShowsPath, StartDelay = StartDelay, KeepServices = KeepServices,
         KeepService = [.. KeepService], KeepAdapterBindings = KeepAdapterBindings,
         ForcePcieLinkSpeed = ForcePcieLinkSpeed,
@@ -43,15 +42,12 @@ public sealed class EngineOptions
 
 public static partial class OptionsValidator
 {
-    [GeneratedRegex(@"^\d{2}H\d$")] private static partial Regex PinVersionRegex();
     [GeneratedRegex(@"^[A-Za-z0-9_.\-]+$")] private static partial Regex ServiceNameRegex();
 
     /// <summary>Same limits as the scripts' parameter validation, plus obvious typos.</summary>
     public static IReadOnlyList<string> Validate(Profile profile, EngineOptions o)
     {
         var errors = new List<string>();
-        if (!string.IsNullOrWhiteSpace(o.PinVersion) && !PinVersionRegex().IsMatch(o.PinVersion.Trim()))
-            errors.Add("Pin version must look like 25H2.");
         if (profile == Profile.WO6)
         {
             if (o.StartDelay is < 0 or > 600) errors.Add("Start delay must be between 0 and 600 seconds.");
@@ -84,7 +80,6 @@ public static class ScriptArgumentBuilder
             if (role != Role.Display) Add("Role", role.ToString());
             if (o.DefenderMode != DefenderMode.Off) Add("DefenderMode", o.DefenderMode.ToString());
             if (o.KeepFirewall) Add("KeepFirewall", true);
-            AddText("PinVersion", o.PinVersion);
             if (o.KeepUpdateService) Add("KeepUpdateService", true);
             AddText("WatchoutPath", o.WatchoutPath);
             if (profile == Profile.WO7)

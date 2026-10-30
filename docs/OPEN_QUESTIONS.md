@@ -521,3 +521,19 @@ has no password; the check confirms it). Steps found done by a check are
 marked done and the wizard jumps to what is missing; "Fix what's missing"
 confirms each step.
 
+## 27. Windows Update: WinUtil's method (new)
+
+**Owner decision (Oct 2026):** PostInstall disables Windows Update with
+exactly the steps of WinUtil's "Disable all updates"
+(`functions/public/Invoke-WPFUpdatesdisable.ps1`, main branch, checked
+30 Oct 2026): `NoAutoUpdate` = 1 and `AUOptions` = 1 under
+`HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU` written directly
+(not through LGPO, so gpedit.msc does not list them), `DODownloadMode` = 0,
+BITS / wuauserv / UsoSvc stopped and disabled, SoftwareDistribution cleared,
+the six update task folders disabled. The script keeps its CSV backup of the
+three services, the read-back and the audit. Dropped: guide 7.4.11.1
+(`NoAUShutdownOption`), 7.4.11.3 (`DoNotConnectToWindowsUpdateInternetLocations`),
+the feature-version pin and `-PinVersion`, and the update-notification
+policy. Machines prepared with an earlier version keep those values in
+their Local GPO until removed by hand (re-running does not undo them).
+

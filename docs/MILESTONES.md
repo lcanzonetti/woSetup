@@ -190,7 +190,6 @@ Scope:
   | `-Role` | ✓ | ✓ | Display / Production | — |
   | `-DefenderMode` | ✓ | ✓ | Off / Exclusions / Skip | Off → Tamper pre-check |
   | `-KeepFirewall` | ✓ | ✓ | switch | — |
-  | `-PinVersion` | ✓ | ✓ | text, default = installed `DisplayVersion` shown | pattern like `25H2` |
   | `-KeepUpdateService` | ✓ | ✓ | switch | — |
   | `-WatchoutPath` | ✓ | ✓ | folder, pre-filled from detection | WO6: contains `WATCHPOINT.exe` or `WATCHMAKER.exe` |
   | `-WorkingDirectory` | ✓ | | folder (captured in WO7-07.2) | warn if missing (script: exclusion added anyway) |

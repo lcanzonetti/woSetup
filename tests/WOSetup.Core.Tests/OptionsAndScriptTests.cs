@@ -66,9 +66,8 @@ public class OptionsAndScriptTests
     [Fact]
     public void Options_are_validated_like_the_scripts_do()
     {
-        Assert.Empty(OptionsValidator.Validate(Profile.WO6, new EngineOptions { PinVersion = "25H2", StartDelay = 600 }));
+        Assert.Empty(OptionsValidator.Validate(Profile.WO6, new EngineOptions { StartDelay = 600 }));
         Assert.NotEmpty(OptionsValidator.Validate(Profile.WO6, new EngineOptions { StartDelay = 601 }));
-        Assert.NotEmpty(OptionsValidator.Validate(Profile.WO7, new EngineOptions { PinVersion = "Windows 11" }));
         Assert.NotEmpty(OptionsValidator.Validate(Profile.WO6, new EngineOptions { KeepService = ["Term Service"] }));
     }
 
@@ -81,6 +80,8 @@ public class OptionsAndScriptTests
         Assert.Contains("Firewall will be turned OFF", text);
         Assert.Contains("real-time protection will be turned OFF", text);
         Assert.Contains("DISABLED FOR GOOD", text);
+        Assert.Contains("WinUtil", text);          // owner decision Oct 2026: WinUtil's method
+        Assert.DoesNotContain("pinned", text);     // the version pin was dropped with it
         Assert.Contains("UNBOUND", text);
         Assert.Contains("does NOT undo", text);
         Assert.DoesNotContain("LGPO.exe NOT FOUND", text);

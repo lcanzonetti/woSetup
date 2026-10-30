@@ -44,8 +44,9 @@
                               * Network location Private, discovery flyout off
                               * Notifications off
                               * Dataton guide chapter 7 GPOs (Win11-adapted) + Win11 additions
-                              * Windows Update fully disabled (policies, version pin, no notifications,
-                                BITS/wuauserv/UsoSvc and update tasks off; -KeepUpdateService to skip)
+                              * Windows Update off with WinUtil's "Disable all updates" steps
+                                (registry, BITS/wuauserv/UsoSvc and update tasks off,
+                                SoftwareDistribution cleared; -KeepUpdateService keeps services and tasks)
                               * Guide ch. 10 settings: UAC never notify, visual effects,
                                 Remote Assistance off, no sounds, defrag schedule off,
                                 taskbar badges off, USB notifications off
@@ -125,9 +126,6 @@
     machine needs file shares (Client for Microsoft Networks / File and
     Printer Sharing) or IPv6.
 
-.PARAMETER PinVersion
-    Feature version to pin Windows Update to (e.g. 25H2). Default: installed version.
-
 .PARAMETER KeepUpdateService
     Do NOT disable BITS / Windows Update / Update Orchestrator and their
     tasks (default: disabled, as WinUtil's "Disable all updates" and the
@@ -192,7 +190,6 @@ param(
     [string[]]$KeepService = @(),
     [switch]$KeepAdapterBindings,
 
-    [string]$PinVersion,
     [switch]$KeepUpdateService,
     [switch]$ForcePcieLinkSpeed,
 
@@ -323,7 +320,6 @@ function Get-RunParameters {
         KeepServices        = [bool]$KeepServices
         KeepService         = @($KeepService)
         KeepAdapterBindings = [bool]$KeepAdapterBindings
-        PinVersion          = $PinVersion
         KeepUpdateService   = [bool]$KeepUpdateService
         ForcePcieLinkSpeed  = [bool]$ForcePcieLinkSpeed
         StartDelay          = $StartDelay
@@ -773,10 +769,9 @@ function Add-GuidePolicies {
     Add-Policy Computer 'Software\Policies\Microsoft\PassportForWork' 'Enabled' 0 '7.4.9.1 Use Windows Hello for Business = Disabled'
     Add-Policy Computer 'Software\Policies\Microsoft\WindowsMediaPlayer' 'DisableAutoUpdate' 1 '7.4.10.1 Windows Media Player: Prevent Automatic Updates = Enabled'
     Add-Policy Computer 'Software\Policies\Microsoft\WindowsMediaPlayer' 'GroupPrivacyAcceptance' 1 '7.4.10.2 Windows Media Player: Do Not Show First Use Dialog Boxes = Enabled'
-    # 7.4.11 Windows Update freeze. Applied only here, after all updates are in.
-    Add-Policy Computer 'Software\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAUShutdownOption' 1 '7.4.11.1 Do not display "Install Updates and Shut Down" option = Enabled'
-    Add-Policy Computer 'Software\Policies\Microsoft\Windows\WindowsUpdate\AU' 'NoAutoUpdate' 1 '7.4.11.2 Configure Automatic Updates = Disabled'
-    Add-Policy Computer 'Software\Policies\Microsoft\Windows\WindowsUpdate' 'DoNotConnectToWindowsUpdateInternetLocations' 1 '7.4.11.3 Do not connect to any WU Internet locations = Enabled (only effective with a WSUS server set)'
+    # 7.4.11 Windows Update: done by Set-UpdateFreeze with WinUtil's method (owner
+    # decision, Oct 2026). NoAutoUpdate = 1 (7.4.11.2) is part of it; 7.4.11.1 and
+    # 7.4.11.3 are no longer applied.
     # Keep the PreUpdate driver exclusion in place in case PreUpdate was skipped.
     Add-Policy Computer 'Software\Policies\Microsoft\Windows\WindowsUpdate' 'ExcludeWUDriversInQualityUpdate' 1 'Do not include drivers with Windows Updates = Enabled'
     # Windows Security notifications (not in the 2018 guide; same intent as 7.7)
@@ -806,65 +801,43 @@ function Add-GuidePolicies {
 }
 
 function Set-UpdateFreeze {
-    # "Configure Automatic Updates = Disabled" (guide 7.4.11) stops automatic
-    # installs, but Windows still offers new feature releases (e.g. 26H2) in
-    # Settings and still shows update notifications. Two policies close that:
-    #   1. Pin the feature version: Windows Update > Manage updates offered
-    #      from Windows Update > "Select the target Feature Update version".
-    #      Quality (security) updates for the pinned version stay available
-    #      for manual install; no newer feature release is offered.
-    #   2. Silence notifications: Manage end user experience > "Display
-    #      options for update notifications" = 2 (all off, incl. restart).
-    Write-Step 'Windows Update freeze'
+    # Windows Update off with the steps of WinUtil's "Disable all updates"
+    # (Updates tab): ChrisTitusTech/winutil, functions/public/
+    # Invoke-WPFUpdatesdisable.ps1, main branch, checked 30 Oct 2026.
+    # Owner decision (Oct 2026): this replaces the earlier set (guide 7.4.11
+    # policies via LGPO, feature-version pin, update-notification policy).
+    # These servers are never patched in place: a newer Windows is installed
+    # from a fresh ISO instead. By design:
+    #   * no security or Defender definition updates;
+    #   * Settings > Windows Update and the Activation page show errors such
+    #     as 0x80070422 (check activation with "slmgr /xpr").
+    # Added to WinUtil's steps for the wizard's rules: service start types are
+    # saved to a CSV first, every change is read back, -Audit only reports.
+    # A restart is needed for everything to take effect (WinUtil says the same).
+    Write-Step 'Windows Update off (WinUtil "Disable all updates")'
 
-    # Pin to the version installed now unless -PinVersion says otherwise.
-    # try/catch: under StrictMode a missing value would otherwise throw.
-    $current = $null
-    try { $current = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name DisplayVersion -ErrorAction Stop).DisplayVersion } catch { }
-    $pin = if ($PinVersion) { $PinVersion } else { $current }
-    if (-not $pin) {
-        Write-Warn 'Could not read the installed Windows version; feature version NOT pinned. Re-run with -PinVersion 25H2 (or your version).'
-    }
-    else {
-        $wu = 'Software\Policies\Microsoft\Windows\WindowsUpdate'
-        Add-Policy Computer $wu 'TargetReleaseVersion'     1            'Select the target Feature Update version = Enabled'
-        Add-Policy Computer $wu 'ProductVersion'           'Windows 11' 'Target product: Windows 11' -Type SZ
-        Add-Policy Computer $wu 'TargetReleaseVersionInfo' $pin         "Target feature version: $pin" -Type SZ
-        Write-Ok "Feature version pinned to Windows 11 $pin (installed: $current)"
-    }
-
-    $wu = 'Software\Policies\Microsoft\Windows\WindowsUpdate'
-    Add-Policy Computer $wu 'SetUpdateNotificationLevel' 1 'Display options for update notifications = Enabled'
-    Add-Policy Computer $wu 'UpdateNotificationLevel'    2 'Notification level: 2 = turn off all notifications, including restart warnings'
-    Write-Ok 'Update notifications off'
+    # 1. Registry, written directly as WinUtil does (not through LGPO, so
+    #    gpedit.msc does not list them). The key is created only if missing:
+    #    other policies under it stay.
+    $au = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+    $do = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config'
+    Set-RegDword $au 'NoAutoUpdate' 1      # automatic updates off
+    Set-RegDword $au 'AUOptions' 1         # WinUtil's value
+    Set-RegDword $do 'DODownloadMode' 0    # Delivery Optimization: no peer downloads
+    Write-Ok 'NoAutoUpdate = 1, AUOptions = 1, DODownloadMode = 0'
 
     if ($KeepUpdateService) {
         if ($script:AuditMode) { Write-Audit 'NA' 'Update services and tasks disabled' '-KeepUpdateService' }
-        Write-Ok 'Windows Update services left running (-KeepUpdateService): manual updates still possible'
+        Write-Ok 'Windows Update services and tasks left as they are (-KeepUpdateService): manual updates still possible'
         return
     }
 
-    # FULL DISABLE (default), the same steps as WinUtil's "Disable all
-    # updates". These servers are never patched in place: a newer Windows is
-    # installed from a fresh ISO instead. Consequences, by design:
-    #   * no security or Defender definition updates, ever;
-    #   * Settings > Windows Update and the Settings Activation page show
-    #     errors such as 0x80070422 (check activation with "slmgr /xpr").
-
-    # Automatic Updates policy option 1, as WinUtil sets it (alongside the
-    # guide's NoAutoUpdate = 1 already queued in Add-GuidePolicies).
-    Add-Policy Computer 'Software\Policies\Microsoft\Windows\WindowsUpdate\AU' 'AUOptions' 1 'Configure Automatic Updates: AUOptions = 1 (WinUtil "Disable all updates")'
-
-    # Delivery Optimization: no peer downloads (non-policy value, direct write).
-    Set-RegDword 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config' 'DODownloadMode' 0
-
-    # Services: Background Intelligent Transfer, Windows Update, Update
-    # Orchestrator. Previous start types saved for rollback first.
-    $names  = 'BITS', 'wuauserv', 'UsoSvc'
-    # Update-related scheduled tasks (disabled further down).
-    $taskPaths = '\Microsoft\Windows\InstallService\', '\Microsoft\Windows\UpdateOrchestrator\',
-                 '\Microsoft\Windows\UpdateAssistant\', '\Microsoft\Windows\WaaSMedic\',
-                 '\Microsoft\Windows\WindowsUpdate\', '\Microsoft\WindowsUpdate\'
+    # 2. Services (Background Intelligent Transfer, Windows Update, Update
+    #    Orchestrator) and 3. the update scheduled tasks, same lists as WinUtil.
+    $names = 'BITS', 'wuauserv', 'UsoSvc'
+    $taskPaths = '\Microsoft\Windows\InstallService\*', '\Microsoft\Windows\UpdateOrchestrator\*',
+                 '\Microsoft\Windows\UpdateAssistant\*', '\Microsoft\Windows\WaaSMedic\*',
+                 '\Microsoft\Windows\WindowsUpdate\*', '\Microsoft\WindowsUpdate\*'
 
     if ($script:AuditMode) {
         foreach ($n in $names) { Test-ServiceStartType $n 'Update service' }
@@ -894,8 +867,8 @@ function Set-UpdateFreeze {
     Remove-Item -Path "$env:SystemRoot\SoftwareDistribution\*" -Recurse -Force -ErrorAction SilentlyContinue
     Write-Ok 'SoftwareDistribution cleared'
 
-    # Update-related scheduled tasks. Some are protected by Windows and stay
-    # enabled; with the three services disabled they cannot do anything.
+    # Some tasks are protected by Windows and stay enabled; with the three
+    # services disabled they cannot do anything.
     $tasks = @(foreach ($tp in $taskPaths) { Get-ScheduledTask -TaskPath $tp -ErrorAction SilentlyContinue })
     foreach ($t in $tasks) { $t | Disable-ScheduledTask -ErrorAction SilentlyContinue | Out-Null }
     $stillOn = @($tasks | ForEach-Object { Get-ScheduledTask -TaskPath $_.TaskPath -TaskName $_.TaskName -ErrorAction SilentlyContinue } |
@@ -903,11 +876,12 @@ function Set-UpdateFreeze {
     Write-Ok "Update tasks: $($tasks.Count - $stillOn.Count) of $($tasks.Count) disabled$(if ($stillOn) { ' (the rest are protected by Windows)' })"
 
     # Read back. Windows' Update Medic service (WaaSMedicSvc, protected) can
-    # restore wuauserv later: check again after the reboot.
+    # restore wuauserv later: check again after the restart.
     $left = @(Get-CimInstance Win32_Service | Where-Object { $names -contains $_.Name -and $_.StartMode -ne 'Disabled' })
     if ($left) { Write-Warn "Still not disabled: $(($left | ForEach-Object Name) -join ', ')" }
     else { Write-Ok 'BITS, wuauserv, UsoSvc disabled' }
-    Write-Host "  [i]    Restore: Import-Csv '$backup' | ForEach-Object { Set-Service `$_.Name -StartupType `$_.StartType }" -ForegroundColor DarkGray
+    Write-Host "  [i]    Restore services: Import-Csv '$backup' | ForEach-Object { Set-Service `$_.Name -StartupType `$_.StartType }" -ForegroundColor DarkGray
+    Write-Host "  [i]    Restore the rest (as WinUtil's 'Default settings'): remove NoAutoUpdate/AUOptions under $au and DODownloadMode under $do, re-enable the tasks above, restart" -ForegroundColor DarkGray
 }
 
 function Set-PerformanceRegistry {
