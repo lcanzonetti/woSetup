@@ -242,10 +242,10 @@ public sealed class SessionTests : IDisposable
     public void Operator_can_confirm_several_manual_steps_at_once()
     {
         var s = NewSession(Profile.WO7);
-        s.MarkManyDone(["WO7-04.1", "WO7-04.2"], "Done before the wizard was used.");
+        s.MarkManyDone(["WO7-04.1", "WO7-05.4"], "Done before the wizard was used.");
         Assert.Equal(StepStatus.Done, s.State.StatusOf("WO7-04.1"));
-        Assert.False(s.State.Step("WO7-04.2").Detected);
-        Assert.Equal("Done before the wizard was used.", s.State.Step("WO7-04.2").Note);
+        Assert.False(s.State.Step("WO7-05.4").Detected);
+        Assert.Equal("Done before the wizard was used.", s.State.Step("WO7-05.4").Note);
     }
 
     [Fact]
@@ -257,6 +257,8 @@ public sealed class SessionTests : IDisposable
         Assert.Equal(CheckState.Done, CheckResult.FromAudits("x", [("PreUpdate", ok)]).State);
         Assert.Equal(CheckState.NotDone, CheckResult.FromAudits("x", [("PreUpdate", ok), ("PostInstall", gap)]).State);
         Assert.Contains("TdrDelay", CheckResult.FromAudits("x", [("PostInstall", gap)]).Detail);
+        var partial = new EngineResult { Status = "Completed", Audit = [new AuditEntry { State = "Set" }, new AuditEntry { State = "Set" }, new AuditEntry { State = "NotSet", Item = "7.3.2 prompt" }] };
+        Assert.StartsWith("Audit: 2 item(s) already set, 1 NOT set: PreUpdate: 7.3.2 prompt", CheckResult.FromAudits("x", [("PreUpdate", partial)]).Detail);
         Assert.Equal(CheckState.CantCheck, CheckResult.FromAudits("x", [("PostInstall", bad)]).State);
         Assert.Equal(CheckState.CantCheck, CheckResult.FromAudits("x", [("PostInstall", null)]).State);
     }

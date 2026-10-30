@@ -24,7 +24,8 @@ The Dataton guide wants the machine offline during setup. Keep the cable unplugg
 The 2018 guide installs only hand-picked updates; on a 25H2 base, install the current cumulative update once, then freeze.
 
 - [ ] Windows Update: install everything, reboot, repeat until nothing is left
-- [ ] RAID drivers present (AMD: `pnputil /enum-drivers | findstr /i /c:"rcbottom" /c:"rcraid" /c:"rccfg"`), then the RAID management app
+- [ ] RAID driver, if the machine has a RAID controller: install the vendor's package (same driver version you loaded in Setup); Device Manager > Storage controllers shows it without a warning
+- [ ] RAID management app (RAIDXpert2, Broadcom tool...), if the machine has RAID
 - [ ] Chipset and storage drivers
 - [ ] NVIDIA driver at the tested version
 - [ ] Capture and audio drivers; test each card in its vendor app before WATCHOUT
@@ -43,12 +44,13 @@ WATCHOUT 6 keeps transferred shows and media in a "Shows" folder inside its inst
 
 Same selection as the WATCHOUT 7 build; it covers the guide's chapters 4–6 (hibernation, app removal, OneDrive). Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and `$Env:OneDrive` are harmless.
 
-- [ ] Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI
-- [ ] Also tick: **BitLocker - Disable**, Visual Effects - Best Performance, Storage Sense - Disable
-- [ ] Skip: Edge removal (keeps WebView2), IPv6 disable (the script unbinds it per adapter), UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in)
-- [ ] Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off
-- [ ] Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan)
-- [ ] Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
+- [ ] Run WinUtil with this selection (one session):
+  - Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI
+  - Also tick: **BitLocker - Disable**, Visual Effects - Best Performance, Storage Sense - Disable
+  - Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off
+  - Leave unticked: Edge removal (keeps WebView2), IPv6 disable (the script unbinds it per adapter), UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in)
+  - Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan)
+  - Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts
 
 ## 5. WATCHOUT 6, licence and NVIDIA
 

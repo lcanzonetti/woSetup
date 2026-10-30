@@ -38,8 +38,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
 | WO7-02.1 | Windows Update: install everything, restart, repeat until nothing is left | Manual | `updates` | needs internet |
-| WO7-02.2 | AMD RAID drivers rcbottom, rcraid and rccfg all present | Manual | — | [Uncertain] |
-| WO7-02.3 | Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup) | Manual | — |  |
+| WO7-02.2 | RAID driver installed, if the machine has a RAID controller | Manual | `raid-driver` | [Uncertain] |
+| WO7-02.3 | RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID | Manual | — |  |
 | WO7-02.4 | Chipset and storage drivers | Manual | — |  |
 | WO7-02.5 | NVIDIA driver at the version tested for your WATCHOUT release | Manual | `nvidia-driver` |  |
 | WO7-02.6 | Capture and audio drivers; test each in the vendor's own app | Manual | — |  |
@@ -51,18 +51,13 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-03.1 | BitLocker / device encryption off | Automatic — bitlocker-off | `bitlocker-off` | 🔒 |
 | WO7-03.2 | Media drive: initialise GPT, format NTFS | Automatic — media-disk-init | `media-volume` | 🔒 |
 | WO7-03.3 | Indexing off on the media drive | Automatic — indexing-off | `media-indexing-off` |  |
-| WO7-03.4 | RAIDXpert2: array healthy; write-back cache and read-ahead optional | Manual | `disks-healthy` |  |
+| WO7-03.4 | RAID management app: array healthy; write-back cache and read-ahead optional | Manual | `disks-healthy` |  |
 
 ### 4. WinUtil debloat
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
-| WO7-04.1 | Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI | Manual | — | needs internet |
-| WO7-04.2 | Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable | Manual | — |  |
-| WO7-04.3 | Skip: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in) | Manual | — |  |
-| WO7-04.4 | Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off | Manual | — |  |
-| WO7-04.5 | Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 7" plan) | Manual | — |  |
-| WO7-04.6 | Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts | Manual | — | [Uncertain] |
+| WO7-04.1 | WinUtil: tick the tweaks and preferences listed below, then run them | Manual | — | needs internet, [Uncertain] |
 
 ### 5. WATCHOUT 7 and NVIDIA
 
@@ -151,8 +146,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
 | WO6-02.1 | Windows Update: install everything, restart, repeat until nothing is left | Manual | `updates` | needs internet |
-| WO6-02.2 | RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas) | Manual | — |  |
-| WO6-02.3 | RAID management app installed | Manual | — |  |
+| WO6-02.2 | RAID driver installed, if the machine has a RAID controller | Manual | `raid-driver` | [Uncertain] |
+| WO6-02.3 | RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID | Manual | — |  |
 | WO6-02.4 | Chipset and storage drivers | Manual | — |  |
 | WO6-02.5 | NVIDIA driver at the version tested with your WATCHOUT 6 release | Manual | `nvidia-driver` |  |
 | WO6-02.6 | Capture and audio drivers; test each card in its vendor app before WATCHOUT | Manual | — |  |
@@ -171,12 +166,7 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
-| WO6-04.1 | Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI | Manual | — | needs internet |
-| WO6-04.2 | Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable | Manual | — |  |
-| WO6-04.3 | Skip: Edge removal (keeps WebView2), IPv6 disable (the script unbinds it per adapter), UTC time, O&O ShutUp10++, "Disable all updates" (PostInstall does the same, after all updates are in) | Manual | — |  |
-| WO6-04.4 | Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off | Manual | — |  |
-| WO6-04.5 | Do NOT click either Ultimate Performance button (PostInstall makes its own "WATCHOUT 6" plan) | Manual | — |  |
-| WO6-04.6 | Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts | Manual | — | [Uncertain] |
+| WO6-04.1 | WinUtil: tick the tweaks and preferences listed below, then run them | Manual | — | needs internet, [Uncertain] |
 
 ### 5. WATCHOUT 6, licence and NVIDIA
 

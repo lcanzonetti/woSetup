@@ -107,22 +107,30 @@ def first_boot(p, script_name):
 
 
 def winutil(p, wo6):
-    skip = ("Skip: Edge removal (keeps WebView2), IPv6 disable" + (" (the script unbinds it per adapter)" if wo6 else "") +
-            ", UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in)")
-    plan = "Do NOT click either Ultimate Performance button (PostInstall makes its own " + ('"WATCHOUT 6"' if wo6 else '"WATCHOUT 7"') + " plan)"
-    note = ("Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local "
-            "copy of winutil.ps1. Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive "
-            "are harmless on a stripped install.")
+    # One step (owner, Oct 2026): the skip list, the Ultimate Performance and
+    # Multiplane Overlay lines are reminders for the same WinUtil session, so
+    # they are part of its instructions instead of separate steps.
+    plan = '"WATCHOUT 6"' if wo6 else '"WATCHOUT 7"'
+    details = "\n".join([
+        "Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local copy of winutil.ps1.",
+        "",
+        "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, "
+        "Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, "
+        "System Tray notifications, Windows AI.",
+        "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable.",
+        "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off.",
+        "",
+        "Leave unticked: Edge removal (keeps WebView2), IPv6 disable" + (" (the script unbinds it per adapter)" if wo6 else "") +
+        ", UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in).",
+        "Do NOT click either Ultimate Performance button: PostInstall makes its own " + plan + " plan.",
+        "Multiplane Overlay: leave Enabled; disable it only if the soak test shows flicker or blackouts "
+        "(the registry method is reportedly ignored on 24H2+ [Uncertain]).",
+        "",
+        "Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive are harmless on a stripped install.",
+    ])
     return {"id": f"{p}-04", "number": 4, "title": "WinUtil debloat", "steps": [
-        step(f"{p}-04.1", "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, "
-             "Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, "
-             "Home and Gallery, OneDrive removal, System Tray notifications, Windows AI", "manual", note, internet=True),
-        step(f"{p}-04.2", "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable", "manual"),
-        step(f"{p}-04.3", skip, "manual"),
-        step(f"{p}-04.4", "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off", "manual"),
-        step(f"{p}-04.5", plan, "manual"),
-        step(f"{p}-04.6", "Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts", "manual",
-             "The registry method is reportedly ignored on 24H2+ [Uncertain].", uncertain=True),
+        step(f"{p}-04.1", "WinUtil: tick the tweaks and preferences listed below, then run them", "manual", details,
+             internet=True, uncertain=True),
     ]}
 
 
@@ -147,10 +155,13 @@ def wo7():
                  "Settings > Windows Update (ms-settings:windowsupdate). Driver updates are excluded by PreUpdate. "
                  "Check: shows the last installed update and whether a restart is pending (it cannot tell if more updates exist).",
                  check="updates", internet=True),
-            step("WO7-02.2", "AMD RAID drivers rcbottom, rcraid and rccfg all present", "manual",
-                 "pnputil /enum-drivers. Not applicable when the machine has no AMD RAID. rccfg is not always carried "
-                 "over from Windows Setup [Uncertain]: this is how you find out.", uncertain=True),
-            step("WO7-02.3", "Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup)", "manual"),
+            step("WO7-02.2", "RAID driver installed, if the machine has a RAID controller", "manual",
+                 "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver "
+                 "package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. "
+                 "Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) "
+                 "[Uncertain on real RAID hardware].",
+                 check="raid-driver", uncertain=True),
+            step("WO7-02.3", "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID", "manual"),
             step("WO7-02.4", "Chipset and storage drivers", "manual"),
             step("WO7-02.5", "NVIDIA driver at the version tested for your WATCHOUT release", "manual",
                  "Check: an NVIDIA driver is installed and shows its version (compare it with the release notes).",
@@ -163,8 +174,8 @@ def wo7():
             step("WO7-03.3", "Indexing off on the media drive", "automated",
                  "Unticks \"Allow files on this drive to have contents indexed\" on every fixed drive except C:.",
                  check="media-indexing-off", action=command("indexing-off")),
-            step("WO7-03.4", "RAIDXpert2: array healthy; write-back cache and read-ahead optional", "manual",
-                 "Check: Windows reports every disk online and healthy (RAIDXpert2 itself is the reference).",
+            step("WO7-03.4", "RAID management app: array healthy; write-back cache and read-ahead optional", "manual",
+                 "Check: Windows reports every disk online and healthy (the RAID app itself is the reference).",
                  check="disks-healthy"),
         ]},
         winutil(p, False),
@@ -251,10 +262,13 @@ def wo6():
             step("WO6-02.1", "Windows Update: install everything, restart, repeat until nothing is left", "manual",
                  "Settings > Windows Update (ms-settings:windowsupdate). Check: last installed update and pending restart.",
                  check="updates", internet=True),
-            step("WO6-02.2", "RAID drivers present (AMD: rcbottom, rcraid, rccfg; Broadcom: megasas)", "manual",
-                 "pnputil /enum-drivers. Not applicable when the machine has no RAID controller."),
-            step("WO6-02.3", "RAID management app installed", "manual",
-                 "RAIDXpert2 (AMD) or the Broadcom tool."),
+            step("WO6-02.2", "RAID driver installed, if the machine has a RAID controller", "manual",
+                 "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver "
+                 "package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. "
+                 "Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) "
+                 "[Uncertain on real RAID hardware].",
+                 check="raid-driver", uncertain=True),
+            step("WO6-02.3", "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID", "manual"),
             step("WO6-02.4", "Chipset and storage drivers", "manual"),
             step("WO6-02.5", "NVIDIA driver at the version tested with your WATCHOUT 6 release", "manual", check="nvidia-driver"),
             step("WO6-02.6", "Capture and audio drivers; test each card in its vendor app before WATCHOUT", "manual"),

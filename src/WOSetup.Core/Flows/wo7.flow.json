@@ -248,9 +248,9 @@
         },
         {
           "id": "WO7-02.2",
-          "title": "AMD RAID drivers rcbottom, rcraid and rccfg all present",
+          "title": "RAID driver installed, if the machine has a RAID controller",
           "kind": "manual",
-          "details": "pnputil /enum-drivers. Not applicable when the machine has no AMD RAID. rccfg is not always carried over from Windows Setup [Uncertain]: this is how you find out.",
+          "details": "If the machine has a RAID controller (AMD RAIDXpert2, Broadcom MegaRAID, ...), install the vendor's RAID driver package from the USB stick, the same version you loaded in Windows Setup. Not applicable without RAID. Check: every RAID controller Windows sees has the vendor's driver (a warning if it is missing or Windows' own) [Uncertain on real RAID hardware].",
           "roles": [
             "Display",
             "Production"
@@ -261,11 +261,12 @@
           "uncertain": true,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false
+          "informational": false,
+          "check": "raid-driver"
         },
         {
           "id": "WO7-02.3",
-          "title": "Install the AMD RAID package with RAIDXpert2 (same driver version as loaded in Setup)",
+          "title": "RAID management app installed (RAIDXpert2, Broadcom tool...), if the machine has RAID",
           "kind": "manual",
           "details": "",
           "roles": [
@@ -407,9 +408,9 @@
         },
         {
           "id": "WO7-03.4",
-          "title": "RAIDXpert2: array healthy; write-back cache and read-ahead optional",
+          "title": "RAID management app: array healthy; write-back cache and read-ahead optional",
           "kind": "manual",
-          "details": "Check: Windows reports every disk online and healthy (RAIDXpert2 itself is the reference).",
+          "details": "Check: Windows reports every disk online and healthy (the RAID app itself is the reference).",
           "roles": [
             "Display",
             "Production"
@@ -432,99 +433,14 @@
       "steps": [
         {
           "id": "WO7-04.1",
-          "title": "Tweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI",
+          "title": "WinUtil: tick the tweaks and preferences listed below, then run them",
           "kind": "manual",
-          "details": "Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local copy of winutil.ps1. Errors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive are harmless on a stripped install.",
+          "details": "Run after updates and drivers, before WATCHOUT. Needs internet (irm christitus.com/win | iex), or a local copy of winutil.ps1.\n\nTweaks: Activity History, ConsumerFeatures, Delivery Optimization, Explorer folder discovery, Hibernation, Location, Store search results, Services to Manual, Telemetry, Temp files, Widgets, WPBT, Home and Gallery, OneDrive removal, System Tray notifications, Windows AI.\nAlso tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable.\nPreferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off.\n\nLeave unticked: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in).\nDo NOT click either Ultimate Performance button: PostInstall makes its own \"WATCHOUT 7\" plan.\nMultiplane Overlay: leave Enabled; disable it only if the soak test shows flicker or blackouts (the registry method is reportedly ignored on 24H2+ [Uncertain]).\n\nErrors about wermgr, PeriodInNanoSeconds, store.db, FileCoAuth and $Env:OneDrive are harmless on a stripped install.",
           "roles": [
             "Display",
             "Production"
           ],
           "needsInternet": true,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-04.2",
-          "title": "Also tick: BitLocker - Disable, Visual Effects - Best Performance, Storage Sense - Disable",
-          "kind": "manual",
-          "details": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-04.3",
-          "title": "Skip: Edge removal (keeps WebView2), IPv6 disable, UTC time, O&O ShutUp10++, \"Disable all updates\" (PostInstall does the same, after all updates are in)",
-          "kind": "manual",
-          "details": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-04.4",
-          "title": "Preferences: BSoD Verbose on, Lock Screen - Disable on, Sticky Keys off, Game Mode off",
-          "kind": "manual",
-          "details": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-04.5",
-          "title": "Do NOT click either Ultimate Performance button (PostInstall makes its own \"WATCHOUT 7\" plan)",
-          "kind": "manual",
-          "details": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-04.6",
-          "title": "Multiplane Overlay: leave Enabled; disable only if the soak test shows flicker or blackouts",
-          "kind": "manual",
-          "details": "The registry method is reportedly ignored on 24H2+ [Uncertain].",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
           "uncertain": true,
