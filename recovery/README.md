@@ -45,8 +45,9 @@ templates are kept unchanged here so the starting point is on record.
    Broadcom `megasas35`) WinPE cannot see C: on a RAID system array.
 8. **USB stick:** `MakeWinPEMedia /UFD` makes one FAT32 partition, which
    cannot hold a `.wim` over 4 GB (OPEN_QUESTIONS 29c).
-9. **Typed `RESTORE`:** the owner decided no typed confirmation words for
-   recovery (OPEN_QUESTIONS 29); a plain yes/no stays.
+9. **Typed confirmations:** `RESTORE` is kept (owner, OPEN_QUESTIONS 29);
+   capture and the boot-entry install still need theirs (proposed
+   `CAPTURE`, `BOOT`).
 10. **No log file:** capture and restore output is only on screen.
 11. Example image name says `24H2`; the build target is 25H2
     (`WO7.8.4_W11-25H2_<date>`).

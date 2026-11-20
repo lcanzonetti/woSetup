@@ -572,9 +572,12 @@ Same-machine restore only: no Sysprep. Details: PROJECT_CONTEXT §2a and §8.
 - The recovery partition is created **in Windows Setup** with DiskPart
   (PROJECT_CONTEXT §2a). The wizard never shrinks C:.
 - Size **40–50 GB**; the commands use 45 GB.
-- **No typed confirmation words** for the recovery steps (install the boot
-  entry, capture, restore). A plain confirmation showing what will happen
-  stays (AGENTS.md rule 3).
+- **Typed confirmations stay** (AGENTS.md rule 7 unchanged; the owner
+  reversed an earlier "no typed words" answer the same day). Each recovery
+  action gets one where it writes to a disk, decided when it is implemented.
+  Proposed: restore `RESTORE` (formats C:), capture `CAPTURE` (replaces the
+  previous fallback image), boot entry install `BOOT` (changes the boot
+  configuration; a BCD backup is made first).
 - WO7 checklist updated: "Before you start" (partition in Setup), section 8
   "Factory image", section 9 (new image after changes, factory reset).
   WO6 not changed yet.
@@ -622,10 +625,11 @@ Same-machine restore only: no Sysprep. Details: PROJECT_CONTEXT §2a and §8.
   partitions.
 - **29d. AGENTS.md rule 7 and ARCHITECTURE §13.** Rule 7 asks for a typed
   confirmation before anything writes to a disk; §13 says the app never runs
-  `diskpart` and formats only an empty non-system disk. The wizard's
-  install-boot-entry and capture steps, and the WinPE restore, need an
-  exception (plain confirmation, decision above). To be amended in the PR
-  that adds these actions.
+  `diskpart` and formats only an empty non-system disk. Rule 7 stays as it
+  is (typed words, decision above). §13 needs an exception for the
+  install-boot-entry and capture steps and the WinPE restore; to be amended
+  in the PR that adds these actions, with their typed words added to the
+  ARCHITECTURE §4.6 table.
 - **29e. WinPE build.** ADK 10.1.26100.2454 + WinPE add-on + the latest ADK
   patch (Microsoft lists this kit for Windows 11 up to 25H2), RAID drivers
   injected, built on the owner's workstation. Must boot with Secure Boot on
