@@ -109,12 +109,13 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-08.10a | Contents indexing off on every data drive (10.15, per drive) | Check | `media-indexing-off` | [Uncertain] |
 | WO7-08.11 | Full audit: both script phases report every item Set | Check | `audit:Both` |  |
 | WO7-08.12 | Optional: secpol.msc > Network List Manager Policies > User cannot change location | Manual | — |  |
-| WO7-08.13 | Recovery partition WO_RECOVERY present after C: (created in Windows Setup) | Manual | — |  |
-| WO7-08.14 | Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry | Manual | — |  |
-| WO7-08.15 | Capture the factory image of C: and the RAID0, before any show or asset is loaded | Manual | — |  |
+| WO7-08.13 | Recovery partition WO_RECOVERY present after C: (created in Windows Setup) | Check | `recovery-partition` |  |
+| WO7-08.14 | Install the recovery boot: WinPE on the recovery partition, boot entry, recovery key, failover | Automatic — recovery-install | `recovery-boot` | 🔒, [Uncertain] |
+| WO7-08.14a | Test the ways into the recovery once on this machine model: the key at power-on and the USB stick | Manual | — | [Uncertain] |
+| WO7-08.15 | Capture the factory image of C: and the RAID0, before any show or asset is loaded | Automatic — recovery-capture | `factory-image` | 🔒 |
 | WO7-08.16 | All nodes discover each other; asset transfer to the RAID0 works | Manual | — |  |
 | WO7-08.17 | Soak test: representative show for several hours on all outputs | Manual | — |  |
-| WO7-08.18 | Copy the valid factory image off the machine (recovery USB stick or NAS) | Manual | — |  |
+| WO7-08.18 | Copy the valid factory image off the machine (recovery USB stick or NAS) | Automatic — recovery-export | — |  |
 
 ### Finish
 

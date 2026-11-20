@@ -11,8 +11,8 @@ public interface IDialogService
     /// <summary>Shows the lines; with <paramref name="typedWord"/> the operator must type it to continue.</summary>
     bool Confirm(string title, string intro, IReadOnlyList<string> lines, string? typedWord, string okText);
 
-    /// <summary>Asks for a short text (e.g. a reason). Null when cancelled; empty input is refused.</summary>
-    string? Prompt(string title, string message);
+    /// <summary>Asks for a short text (e.g. a reason), pre-filled with <paramref name="initial"/>. Null when cancelled; empty input is refused.</summary>
+    string? Prompt(string title, string message, string initial = "");
 
     /// <summary>Buttons in a row; returns the index pressed, -1 when the window is closed.</summary>
     int Choose(string title, string intro, IReadOnlyList<string> lines, IReadOnlyList<string> buttons);
@@ -41,9 +41,9 @@ public sealed class DialogService : IDialogService
         return dlg.ShowDialog() == true;
     }
 
-    public string? Prompt(string title, string message)
+    public string? Prompt(string title, string message, string initial = "")
     {
-        var dlg = new PromptWindow(title, message) { Owner = Owner };
+        var dlg = new PromptWindow(title, message, initial) { Owner = Owner };
         return dlg.ShowDialog() == true ? dlg.Answer : null;
     }
 

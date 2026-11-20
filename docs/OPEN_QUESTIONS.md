@@ -34,7 +34,7 @@ that deviates from the checklists or adds behaviour waits for the owner.
 | 22 | Finish before or after imaging | M5 | Closed (not now) |
 | 23 | Portable exe vs resume after reboot | M1 | Decided |
 | 24 | Audit labels (Set / Not Set / N/A) | S4 | Decided |
-| 29 | Factory restore (golden image on a recovery partition) | new milestone | Partly decided |
+| 29 | Factory restore (golden image on a recovery partition) | milestone R | Decided (implemented, untested) |
 
 ---
 
@@ -605,65 +605,46 @@ Same-machine restore only: no Sysprep. Details: PROJECT_CONTEXT §2a and §8.
     updates, NVIDIA and other drivers). **[Uncertain]** how much an
     in-place WATCHOUT update leaves behind compared with a first install.
 
-**Still open:**
+**Decided (20 Nov 2026) and implemented (milestone R, not yet run on
+Windows):** ARCHITECTURE §14 has the design as built.
 
-- **29a. Way into the recovery before Windows starts.** The toolkit only has
-  a desktop shortcut, which needs a working Windows. Options:
-  1. Boot menu with a countdown (entry in `displayorder`, timeout 3–5 s):
-     documented and reliable; a text menu shows on the outputs at every
-     boot and the boot takes that much longer.
-  2. Hidden hotkey in Windows Boot Manager (`{bootmgr} customactions` +
-     `custom:<id>` → the recovery entry), the closest to WATCHPAX's Esc
-     countdown. **[Uncertain]**: the values come from forum posts, not
-     Microsoft documentation; the key's scan code and whether the firmware
-     passes a USB keyboard through in time must be tested per machine model.
-  3. F8 → "Repair your computer" with `bootmenupolicy legacy` and the OS
-     entry's `recoverysequence` pointing at the recovery. **[Uncertain]**.
-  4. Automatic failover after failed boots through the same
-     `recoverysequence`. **[Uncertain]**: no Microsoft documentation found
-     for a custom WinPE target; `reagentc /enable` would overwrite it.
-  5. A separate entry in the firmware's one-time boot menu (F12 on
-     ThinkStation). **[Uncertain]** how to make it independent of the
-     Windows Boot Manager entry.
-  6. USB recovery stick via the firmware boot menu: always works, also
-     when the system array is lost.
-
-  **Recommendation:** 2 + 4 + 6, tested on a VM and on each hardware
-  model; fall back to 1 if the hotkey is unreliable.
-- **29b. One WIM file per image (toolkit as is) or one WIM with an index
-  per capture (`DISM /Append-Image`).** Separate files: simple, a damaged
-  file loses one version only, each file can be copied off on its own;
-  needs room for three images during a capture. Append: identical files
-  are stored once, so a second capture adds only what changed; one file
-  holds every version, and running out of space while appending can
-  corrupt it (Microsoft DISM docs). **Recommendation:** separate files,
-  now that the partition is 45 GB; re-check after the first real capture.
-- **29c. USB stick layout.** UEFI boots from FAT32, which cannot hold a
-  file over 4 GB, and `MakeWinPEMedia /UFD` makes one FAT32 partition.
-  Options: two partitions (FAT32 ~2 GB for WinPE, NTFS for the images;
-  Windows 10 1703 and later, and its WinPE, mount both), or split the image
-  into 4 GB `.swm` parts (`DISM /Split-Image`). **Recommendation:** two
-  partitions.
-- **29d. AGENTS.md rule 7 and ARCHITECTURE §13.** Rule 7 asks for a typed
-  confirmation before anything writes to a disk; §13 says the app never runs
-  `diskpart` and formats only an empty non-system disk. Rule 7 stays as it
-  is (typed words, decision above). §13 needs an exception for the
-  install-boot-entry and capture steps and the WinPE restore; to be amended
-  in the PR that adds these actions, with their typed words added to the
-  ARCHITECTURE §4.6 table.
-- **29e. WinPE build.** ADK 10.1.26100.2454 + WinPE add-on + the latest ADK
-  patch (Microsoft lists this kit for Windows 11 up to 25H2), RAID drivers
-  injected, built on the owner's workstation. Must boot with Secure Boot on
-  after the Windows Production PCA 2011 expiry (19 Oct 2026, KB5132953)
-  **[Uncertain until tested]**.
+- **29a. Ways into the recovery before Windows starts: key + failover +
+  USB.** A key at power-on (F9 by default; F8, F10, F11 offered; F1, F2 and
+  F12 left to the firmware), automatic start of the recovery after failed
+  Windows starts, and the recovery USB stick; plus the desktop file
+  `Factory recovery.cmd` while Windows runs. **[Uncertain]** The key
+  (`{bootmgr} customactions` + `custom:54000001`) comes from Microsoft's old
+  "hardware recovery button" page and community reports, not from current
+  documentation, and depends on the firmware passing the key in time; the
+  failover (`{default} recoverysequence`) is not documented for a custom
+  WinPE and `reagentc /enable` would overwrite it. Test both on each model;
+  if the key is unreliable, the fallback is the boot menu with a countdown.
+- **29b. One WIM file per image** (`factory_C.wim`, `factory_D.wim`,
+  `factory.json`; previous pair `factory_prev_*`). New images are written as
+  `new_*` and only replace the factory image once complete.
+- **29c. USB stick: two partitions** (FAT32 2 GB for WinPE, NTFS for the
+  images, one folder per machine: `Images\<COMPUTERNAME>`).
+  `tools/recovery/New-RecoveryUsb.ps1` (typed `USB <n>`); the wizard's
+  "Copy the factory image off the machine" fills it.
+- **29d. Rules.** AGENTS.md rule 7 unchanged; typed words BOOT, CAPTURE,
+  RESTORE (ARCHITECTURE §4.6); ARCHITECTURE §13 has the recovery exception.
+- **29e. WinPE build.** `tools/recovery/Build-WinPE.ps1` on a technician PC
+  with the ADK (10.1.26100.2454 + WinPE add-on + latest patch for 24H2/25H2),
+  RAID drivers via `-DriverFolder` (AMD rcbottom -> rcraid -> rccfg first).
+  **[Uncertain]** Secure Boot after the PCA 2011 expiry (19 Oct 2026,
+  KB5132953): test the WinPE with Secure Boot on, on each model.
 - **29f.** ~~Where WATCHOUT 7 keeps its local cache and settings~~: closed
-  by the "real factory reset" decision (C: and D: both return to the end of
-  the build).
-- **29g.** Formatting D: on restore resets the drive's own settings: the
-  root folder's "not content indexed" attribute (wizard step 3.3) and the
-  volume label. **[Uncertain]** whether applying the D: image brings the
-  root attribute back; the restore should set it again, and "Check this
-  machine" shows it. If the RAID0 was rebuilt, the restore needs it
-  initialised and formatted first, and its letter must be D: again
-  **[Uncertain]** whether Windows gives it back by itself.
-
+  by the "real factory reset" decision.
+- **29g.** Formatting D: on restore resets the root folder's "not content
+  indexed" attribute: the restore sets it again. The label and cluster size
+  come from `target.json`. **[Uncertain]** If the RAID0 was rebuilt, its
+  partition has a new GUID: the restore asks for the partition by hand, and
+  Windows may give it a letter other than D: (WATCHOUT's paths would then
+  break; check after the restore).
+- **29h. Partition size (owner, 20 Nov 2026):** 45 GB is the suggestion, not a
+  limit; a larger partition is fine. The capture checks the room before it
+  starts (estimate **[Uncertain]** until the first real capture) and deletes
+  the older fallback first when needed.
+- **29i. "Empty" working directory:** the capture refuses when the working
+  directory holds more than 100 MB **[Uncertain threshold]**: what WATCHOUT 7
+  keeps in an unused working directory is not known.

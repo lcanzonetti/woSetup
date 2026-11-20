@@ -24,6 +24,9 @@
     <!-- Wizard helpers: read-only checks and the actions the owner approved (Oct 2026). -->
     <EmbeddedResource Include="Engine\WO-Checks.ps1" LogicalName="engine/WO-Checks.ps1" />
     <EmbeddedResource Include="Engine\WO-Actions.ps1" LogicalName="engine/WO-Actions.ps1" />
+    <!-- Factory recovery (Nov 2026): the WinPE-side script, linked from /recovery.
+         WO-Actions.ps1 copies it to the recovery partition and shares its helpers. -->
+    <EmbeddedResource Include="..\..\recovery\partition\WO-Recovery.ps1" LogicalName="engine/WO-Recovery.ps1" />
     <!-- LGPO.exe is bundled when present at build time (decided OPEN_QUESTIONS 3).
          It is not in git: put it in third_party/LGPO/ before building. Without
          it, the wizard uses an LGPO.exe placed next to the wizard exe, or the

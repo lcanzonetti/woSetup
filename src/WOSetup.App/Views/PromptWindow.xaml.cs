@@ -8,12 +8,13 @@ public partial class PromptWindow : Window
 {
     public string Answer => AnswerBox.Text.Trim();
 
-    public PromptWindow(string title, string message)
+    public PromptWindow(string title, string message, string initial = "")
     {
         InitializeComponent();
         Title = title;
         MessageText.Text = message;
-        Loaded += (_, _) => AnswerBox.Focus();
+        AnswerBox.Text = initial;
+        Loaded += (_, _) => { AnswerBox.Focus(); AnswerBox.SelectAll(); };
     }
 
     private void OnChanged(object sender, TextChangedEventArgs e) => OkButton.IsEnabled = Answer.Length > 0;

@@ -26,7 +26,7 @@ jobs:
       - name: Parse-check PowerShell under Windows PowerShell 5.1
         shell: powershell
         run: |
-          $files = @(Get-ChildItem scripts, src/WOSetup.App/Engine, tests/pester -Filter *.ps1 -Recurse)
+          $files = @(Get-ChildItem scripts, src/WOSetup.App/Engine, recovery, tools/recovery, tests/pester -Filter *.ps1 -Recurse)
           $bad = 0
           foreach ($f in $files) {
               $tokens = $null; $errors = $null

@@ -150,7 +150,8 @@ StepDefinition
                   "audit:PreUpdate" | "audit:PostInstall" | "audit:Both" (the scripts' -Audit)
   Action        automated steps only:
                   { type: script,  phase: PreUpdate|PostInstall }
-                  { type: command, name: bitlocker-off|media-disk-init|indexing-off|static-ip|wol-enable }
+                  { type: command, name: bitlocker-off|media-disk-init|indexing-off|static-ip|wol-enable|
+                                         recovery-install|recovery-capture|recovery-export }
                   { type: restart } | { type: finish }
   After         "only needed when step X is performed now" (restart after PostInstall,
                 read its warnings, review options). If X is found already done by a
@@ -221,6 +222,11 @@ to a disk:
 | Media drive initialise + format | `DISK <n>` (the disk number) |
 | Static IP | `APPLY` |
 | Indexing off, Wake on Magic Packet, PreUpdate | plain confirmation |
+| Install the recovery boot (boot configuration, recovery partition) | `BOOT` |
+| Capture the factory image (restarts into WinPE, replaces the fallback image) | `CAPTURE` |
+| Restore in the WinPE recovery menu (formats C: and D:) | `RESTORE` (also `CAPTURE` for a capture started there) |
+| Copy the factory image off the machine | plain confirmation |
+| `tools/recovery/New-RecoveryUsb.ps1` (erases a USB stick; technician PC) | `USB <n>` (the disk number) |
 
 The media-drive action only accepts a disk without any partition table
 (RAW) that is not the boot/system disk and not USB; the script checks this
@@ -769,6 +775,13 @@ lines, reads back what it changed, and writes `{ Status, Warnings, Data }`.
 After an action the wizard also runs the step's check, so a BitLocker
 decryption still in progress shows as "not done" with its percentage.
 
+Factory recovery (owner, Nov 2026; OPEN_QUESTIONS 29): `recovery-install`,
+`recovery-capture`, `recovery-export` and the query `list-recovery-usb`.
+The wizard extracts `recovery/partition/WO-Recovery.ps1` (embedded as
+`engine/WO-Recovery.ps1`) next to `WO-Actions.ps1`; the actions copy it to
+the recovery partition and dot-source its image-set helpers, so Windows and
+WinPE share one definition of an image set. See §14.
+
 ---
 
 ## 12. Testing
@@ -787,7 +800,12 @@ decryption still in progress shows as "not done" with its percentage.
 
 - Run `diskpart`, touch RAID arrays or RAID drivers, or format any disk
   other than an empty (RAW) non-system disk the operator picked and
-  confirmed by typing its number.
+  confirmed by typing its number. **Exception (owner, Nov 2026):** the
+  factory recovery (§14) writes to the hidden `WO_RECOVERY` partition and
+  the boot configuration (typed `BOOT`, BCD backed up first), and its WinPE
+  side formats C: and D: on a restore (typed `RESTORE`). The wizard itself
+  never formats C: or D: and never creates or resizes partitions (the
+  recovery partition is made in Windows Setup).
 - Change WATCHOUT/Dataton services or CodeMeter.
 - Change BIOS, NVIDIA Control Panel, Tamper Protection, display scale,
   auto-logon (guides, plus checks where one exists). Install Windows
@@ -799,3 +817,56 @@ decryption still in progress shows as "not done" with its percentage.
   chosen subset of WinUtil tweaks into the scripts.
 - Contact the network, except where the operator explicitly starts an
   online step (Windows Update in Settings, the optional online WinUtil launch).
+
+---
+
+## 14. Factory recovery (owner, Nov 2026; OPEN_QUESTIONS 29)
+
+A factory reset returns the machine to the end of the build: Windows and
+WATCHOUT freshly installed and tweaked. Shows and assets are not kept.
+
+| Part | Where | Runs on |
+| --- | --- | --- |
+| Partition `WO_RECOVERY` (type Recovery, no letter, 45 GB suggested, larger is fine) | made with DiskPart in Windows Setup (PROJECT_CONTEXT §2a) | Windows Setup |
+| WinPE build (WinPE-WMI, -NetFX, -Scripting, -PowerShell, -StorageWMI, -DismCmdlets, RAID drivers, `startnet.cmd`, `X:\WORecovery\Start-WORecovery.ps1`) | `tools/recovery/Build-WinPE.ps1` -> `WOSetupRecovery\` next to the wizard exe | technician PC with the ADK |
+| Recovery menu: capture / restore / last result / bcdboot / cmd | `recovery/partition/WO-Recovery.ps1` | WinPE |
+| Install the recovery boot, capture request, copy off | `Engine/WO-Actions.ps1` | the show machine (wizard) |
+| Checks `recovery-partition`, `recovery-boot`, `factory-image` | `Engine/WO-Checks.ps1` (reads the partition through `\\?\Volume{...}\`, no letter) | the show machine (wizard) |
+| Recovery USB stick (FAT32 WinPE + NTFS images) | `tools/recovery/New-RecoveryUsb.ps1` | technician PC |
+
+**On the recovery partition:** `WO_RECOVERY.tag`, `WO-Recovery.ps1`,
+`WORecovery\boot.wim` + `boot.sdi`, `target.json` (GPT partition GUIDs of C:
+and D:, labels, D: cluster size, WATCHOUT folder, working directory, boot
+entry GUIDs, recovery key), `pending.json` (a capture requested by the
+wizard), `Images\factory_C.wim` + `factory_D.wim` + `factory.json` (and
+`factory_prev_*`, the fallback), `Logs\<stamp>_<action>.log`,
+`Logs\last-result.json`, DISM logs.
+
+**Boot:** a RAM-disk WinPE `osloader` entry on its own ramdisk device object
+(not `{ramdiskoptions}`), not in the boot menu. Ways in (decision 29a):
+desktop file `Factory recovery.cmd` (`bcdedit /bootsequence`), a key at
+power-on (`{bootmgr} customactions` + `custom:54000001`), automatic after
+failed starts (`{default} recoverysequence`), and the USB stick. The key and
+the failover are **[Uncertain]**: the key format comes from Microsoft's old
+"hardware recovery button" page and community reports.
+
+**Capture:** the wizard checks BitLocker, the content of D: (WATCHOUT folder
+and an empty working directory only) and the room, writes `pending.json`,
+sets the next start to the recovery and restarts. WinPE removes the request
+first (no capture loop after a crash), counts down 15 s (any key: menu),
+captures C: then D: to `new_*` with `/Compress:max /CheckIntegrity /Verify`,
+and only then rotates `new` -> `factory` -> `factory_prev` (decision 29b: one
+file per image). Room: estimate = previous image + 15 % or 60 % of the used
+space **[Uncertain ratio]**; when short, the older fallback is deleted first;
+when still short, the capture refuses.
+
+**Restore:** C: and D: are found by partition GUID (by hand, with sizes and
+labels shown, if a disk was replaced), quick-formatted with their labels
+and cluster sizes (the partition GUID stays, so the boot entry stays valid),
+both images applied with `/CheckIntegrity /Verify`, the D: root
+"not content indexed" attribute set again, `C:\Windows` checked.
+
+**Not verified anywhere yet:** every DISM, format, partition and BCD step;
+WinPE with Secure Boot after the PCA 2011 expiry; the key and the failover;
+whether WATCHOUT 7 runs from a restored C: + D: pair (MILESTONES "R").
+
