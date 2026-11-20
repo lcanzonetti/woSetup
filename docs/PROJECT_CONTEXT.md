@@ -184,6 +184,9 @@ the three is acceptable; the toolkit must leave a `\Recovery` folder alone.
   Firewall off is still the default (guide 7.1); `-KeepFirewall` is valid.
 - Working directory default: `.wo` next to the install; move it to the media
   RAID0 via Nodes → Node Properties → Change Working Directory (folder must exist).
+  Since Nov 2026 WATCHOUT 7 itself is installed on the RAID0 too (factory
+  image covers C: and D:); the working directory stays in its own folder,
+  outside the program folder.
 - Services: owner keeps WinUtil "Set to Manual"; WO7 script does not disable
   chapter-11 services (only WSearch, see below).
 - Oct 2026 (owner's decision): WO7 PostInstall also applies what WO6 automates
@@ -255,9 +258,13 @@ the three is acceptable; the toolkit must leave a `\Recovery` folder alone.
 - Licensing: one Windows licence per machine; formal reimaging rights belong
   to Commercial (Volume) Licensing media **[Uncertain how it applies here]**.
 
-- **Factory restore (WO7, decided Nov 2026):** golden image of C: on the
-  hidden `WO_RECOVERY` partition (§2a), restored from a WinPE that boots
-  from that partition (RAM disk entry in the BCD) or from a USB stick. Not
+- **Factory restore (WO7, decided Nov 2026):** image of C: and the RAID0
+  (D:, where WATCHOUT 7 is installed) taken at the end of the build, before
+  any show, on the hidden `WO_RECOVERY` partition (§2a), restored from a
+  WinPE that boots from that partition (RAM disk entry in the BCD) or from
+  a USB stick. A reset erases C: and D:; shows and assets are uploaded
+  again. New versions: rebuild (strict) or reset + update + capture
+  (faster), WO7 checklist §9. Not
   "Reset this PC" (rebuilds from WinSxS, restores only inbox apps and INF
   drivers; the scripts also set the WinRE `DisableSetup` and `DisableSR`
   policies). Toolkit (untested templates): `recovery/`. Same machine only, no

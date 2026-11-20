@@ -63,8 +63,8 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
-| WO7-05.1 | Install WATCHOUT 7 | Manual | — |  |
-| WO7-05.2 | Folder on the RAID0, then Nodes > Node Properties > Change Working Directory to it | Manual | `wo7-workdir` |  |
+| WO7-05.1 | Install WATCHOUT 7 into a folder on the RAID0 (e.g. D:\WATCHOUT 7) | Manual | — |  |
+| WO7-05.2 | Separate folder on the RAID0, outside the WATCHOUT folder, then Nodes > Node Properties > Change Working Directory to it | Manual | `wo7-workdir` |  |
 | WO7-05.3 | Auto-logon | Manual | — |  |
 | WO7-05.4 | NVIDIA Control Panel: global profile "Workstation – Dynamic Streaming" | Manual | — |  |
 | WO7-05.5 | Then confirm Power Management Mode = Prefer Maximum Performance and Vertical Sync = Off | Manual | — |  |
@@ -108,13 +108,13 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-08.10 | Windows Search service disabled (10.15) | Check | `wsearch-disabled` |  |
 | WO7-08.10a | Contents indexing off on every data drive (10.15, per drive) | Check | `media-indexing-off` | [Uncertain] |
 | WO7-08.11 | Full audit: both script phases report every item Set | Check | `audit:Both` |  |
-| WO7-08.12 | All nodes discover each other; asset transfer to the RAID0 works | Manual | — |  |
-| WO7-08.13 | Optional: secpol.msc > Network List Manager Policies > User cannot change location | Manual | — |  |
-| WO7-08.14 | Soak test: representative show for several hours on all outputs | Manual | — |  |
-| WO7-08.15 | Recovery partition WO_RECOVERY present after C: (created in Windows Setup) | Manual | — |  |
-| WO7-08.16 | Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry | Manual | — |  |
-| WO7-08.17 | Capture the factory image (restart into the recovery, choose Capture) | Manual | — |  |
-| WO7-08.18 | Copy the factory image off the machine (recovery USB stick or NAS) | Manual | — |  |
+| WO7-08.12 | Optional: secpol.msc > Network List Manager Policies > User cannot change location | Manual | — |  |
+| WO7-08.13 | Recovery partition WO_RECOVERY present after C: (created in Windows Setup) | Manual | — |  |
+| WO7-08.14 | Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry | Manual | — |  |
+| WO7-08.15 | Capture the factory image of C: and the RAID0, before any show or asset is loaded | Manual | — |  |
+| WO7-08.16 | All nodes discover each other; asset transfer to the RAID0 works | Manual | — |  |
+| WO7-08.17 | Soak test: representative show for several hours on all outputs | Manual | — |  |
+| WO7-08.18 | Copy the valid factory image off the machine (recovery USB stick or NAS) | Manual | — |  |
 
 ### Finish
 

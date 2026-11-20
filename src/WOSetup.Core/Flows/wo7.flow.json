@@ -457,9 +457,9 @@
       "steps": [
         {
           "id": "WO7-05.1",
-          "title": "Install WATCHOUT 7",
+          "title": "Install WATCHOUT 7 into a folder on the RAID0 (e.g. D:\\WATCHOUT 7)",
           "kind": "manual",
-          "details": "",
+          "details": "The factory image covers C: and the RAID0, so a factory reset also replaces the WATCHOUT install (owner, Nov 2026; OPEN_QUESTIONS 29).",
           "roles": [
             "Display",
             "Production"
@@ -474,7 +474,7 @@
         },
         {
           "id": "WO7-05.2",
-          "title": "Folder on the RAID0, then Nodes > Node Properties > Change Working Directory to it",
+          "title": "Separate folder on the RAID0, outside the WATCHOUT folder, then Nodes > Node Properties > Change Working Directory to it",
           "kind": "manual",
           "details": "Done in WATCHOUT. Put the same folder in Options (-WorkingDirectory) so PostInstall's Defender exclusion and this check use it.",
           "roles": [
@@ -1025,23 +1025,6 @@
         },
         {
           "id": "WO7-08.12",
-          "title": "All nodes discover each other; asset transfer to the RAID0 works",
-          "kind": "manual",
-          "details": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-08.13",
           "title": "Optional: secpol.msc > Network List Manager Policies > User cannot change location",
           "kind": "manual",
           "details": "",
@@ -1058,24 +1041,7 @@
           "informational": false
         },
         {
-          "id": "WO7-08.14",
-          "title": "Soak test: representative show for several hours on all outputs",
-          "kind": "manual",
-          "details": "",
-          "roles": [
-            "Display",
-            "Production"
-          ],
-          "needsInternet": false,
-          "mustBeOffline": false,
-          "confirm": false,
-          "uncertain": false,
-          "optionsStep": false,
-          "autoDone": false,
-          "informational": false
-        },
-        {
-          "id": "WO7-08.15",
+          "id": "WO7-08.13",
           "title": "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)",
           "kind": "manual",
           "details": "Get-Partition shows it as type Recovery, about 45 GB, no drive letter. Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a.",
@@ -1092,10 +1058,44 @@
           "informational": false
         },
         {
-          "id": "WO7-08.16",
+          "id": "WO7-08.14",
           "title": "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry",
           "kind": "manual",
-          "details": "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: the factory image is the rollback.",
+          "details": "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: a factory reset puts this image back.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.15",
+          "title": "Capture the factory image of C: and the RAID0, before any show or asset is loaded",
+          "kind": "manual",
+          "details": "Restart into the recovery, choose Capture. BitLocker must be off (step 8.3); no Sysprep; the working directory must be empty. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>. A factory reset erases C: and D: and puts this image back (shows and assets are uploaded again).",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.16",
+          "title": "All nodes discover each other; asset transfer to the RAID0 works",
+          "kind": "manual",
+          "details": "",
           "roles": [
             "Display",
             "Production"
@@ -1110,9 +1110,9 @@
         },
         {
           "id": "WO7-08.17",
-          "title": "Capture the factory image (restart into the recovery, choose Capture)",
+          "title": "Soak test: representative show for several hours on all outputs",
           "kind": "manual",
-          "details": "BitLocker must be off (step 8.3); no Sysprep. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>.",
+          "details": "Passed: the factory image is valid. A change is needed: factory reset, make the change before loading any show, capture again, soak test again.",
           "roles": [
             "Display",
             "Production"
@@ -1127,7 +1127,7 @@
         },
         {
           "id": "WO7-08.18",
-          "title": "Copy the factory image off the machine (recovery USB stick or NAS)",
+          "title": "Copy the valid factory image off the machine (recovery USB stick or NAS)",
           "kind": "manual",
           "details": "An image on the same array as C: does not survive an array failure.",
           "roles": [
