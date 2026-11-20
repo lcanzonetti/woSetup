@@ -51,6 +51,8 @@ $script:LogFile         = $null
 
 # ===========================================================================
 # Pure helpers (Pester: tests/pester/Recovery.Tests.ps1)
+# Functions returning lists return plain arrays; callers wrap them in @(...).
+# ("return , $x" would make @(f) count 1 even for an empty list.)
 # ===========================================================================
 
 function Test-ImageName([string]$Name) {
@@ -138,7 +140,7 @@ function Find-ImageSets([string[]]$Roots) {
             }
         }
     }
-    return , $sets.ToArray()
+    return $sets.ToArray()
 }
 
 function Remove-ImageSet([string]$Folder, [string]$Prefix) {
@@ -196,19 +198,19 @@ function Get-UnexpectedDataEntries([string[]]$Entries, [string[]]$Allowed) {
     # the factory state (show data, assets, copies).
     $always = @('System Volume Information', '$RECYCLE.BIN', 'WO_DATA.tag')
     $ok = @($Allowed | Where-Object { $_ }) + $always
-    return , @($Entries | Where-Object { $e = $_; -not ($ok | Where-Object { $_ -ieq $e }) })
+    return @($Entries | Where-Object { $e = $_; -not ($ok | Where-Object { $_ -ieq $e }) })
 }
 
 function Test-Target($Target) {
     # Problems in target.json; empty when usable.
     $p = New-Object System.Collections.Generic.List[string]
-    if ($null -eq $Target) { $p.Add('target.json is missing or unreadable.'); return , $p.ToArray() }
+    if ($null -eq $Target) { $p.Add('target.json is missing or unreadable.'); return $p.ToArray() }
     foreach ($part in 'System', 'Data') {
         if (-not $Target.PSObject.Properties[$part]) { $p.Add("target.json has no $part section."); continue }
         $s = $Target.$part
         if (-not $s.PSObject.Properties['PartitionGuid'] -or -not $s.PartitionGuid) { $p.Add("target.json: $part.PartitionGuid is empty.") }
     }
-    return , $p.ToArray()
+    return $p.ToArray()
 }
 
 # ===========================================================================
@@ -240,7 +242,7 @@ function Get-TaggedRoots {
         $r = "$($v.DriveLetter):\"
         if (Test-Path -LiteralPath (Join-Path $r 'WO_RECOVERY.tag')) { $roots += $r }
     }
-    return , $roots
+    return $roots
 }
 
 function Get-InternalRoot([string[]]$Roots) {
@@ -417,7 +419,7 @@ function Invoke-Capture([string]$RecRoot, $Target, [string]$Name, [switch]$FromW
             if ($v) { $allowed += Split-Path -Leaf $v }
         }
         $entries = @(Get-ChildItem -LiteralPath "${d}:\" -Force | ForEach-Object { $_.Name })
-        $extra = Get-UnexpectedDataEntries -Entries $entries -Allowed $allowed
+        $extra = @(Get-UnexpectedDataEntries -Entries $entries -Allowed $allowed)
         if ($extra.Count -gt 0) { throw "D: holds more than the WATCHOUT folder and the working directory: $($extra -join ', '). It would become factory state. Move it away, then capture again." }
 
         $imgDir = Join-Path $RecRoot 'Images'
@@ -536,7 +538,7 @@ function Repair-BootFiles($Target) {
 
 function Show-Menu([string]$RecRoot, $Target, [string[]]$Roots) {
     while ($true) {
-        $sets = Find-ImageSets $Roots
+        $sets = @(Find-ImageSets $Roots)
         Clear-Host
         Write-Host '  ========================================================'
         Write-Host '   WATCHOUT server - factory recovery'
@@ -584,7 +586,7 @@ function Show-Menu([string]$RecRoot, $Target, [string[]]$Roots) {
 
 function Start-Recovery {
     Mount-RecoveryPartitions
-    $roots = Get-TaggedRoots
+    $roots = @(Get-TaggedRoots)
     $rec = Get-InternalRoot $roots
     $target = Read-Target $rec
     foreach ($p in (Test-Target $target)) { Write-Host "  [WARN] $p" }
