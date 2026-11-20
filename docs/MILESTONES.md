@@ -251,6 +251,46 @@ Acceptance:
 
 ---
 
+## R — Factory recovery (WO7; owner, Nov 2026)
+
+**Goal:** a factory reset that returns a WO7 machine to the end of the build
+(Windows and WATCHOUT freshly installed and tweaked), from a hidden recovery
+partition or a USB stick. Decisions: OPEN_QUESTIONS 29. Design:
+ARCHITECTURE §14.
+
+Status (20 Nov 2026): **code done, not yet run on Windows.** CI parse-checks
+the scripts, runs the Pester tests of the pure helpers and checks that the
+recovery actions refuse cleanly on a machine without a recovery partition.
+
+Scope (done in code):
+- Windows Setup partition commands (PROJECT_CONTEXT §2a).
+- `tools/recovery/Build-WinPE.ps1`, `tools/recovery/New-RecoveryUsb.ps1`.
+- `recovery/winpe/startnet.cmd`, `Start-WORecovery.ps1`;
+  `recovery/partition/WO-Recovery.ps1` (capture / restore of C: + D:).
+- Wizard: `recovery-install` (BOOT), `recovery-capture` (CAPTURE),
+  `recovery-export`; checks `recovery-partition`, `recovery-boot`,
+  `factory-image`; steps WO7-08.13 to 08.18.
+
+Acceptance:
+1. **VM-EN** (Hyper-V Gen 2, **Secure Boot on**, second virtual disk as D:):
+   partition made in Setup; Build-WinPE output boots from the recovery
+   partition through the desktop file; capture from the wizard comes back
+   to Windows by itself and the step checks Done; break C: (delete
+   `C:\Windows\System32\winload.efi`) and D: (delete the WATCHOUT folder);
+   the failover or the key opens the recovery; Restore with `RESTORE`; the
+   machine starts, "Check this machine" reports every step as before the
+   break, D: indexing off.
+2. Capture with a show file on D: is refused; capture with too little room
+   deletes the fallback first or refuses.
+3. Recovery USB stick boots on VM-EN and restores from its copy.
+4. **HW-WO7** (ThinkStation P8, AMD NVMe RAID): WinPE sees both arrays; the
+   key (F9) is caught at power-on; capture and restore timings recorded;
+   WATCHOUT 7 starts from the restored pair, nodes rediscover each other,
+   the CodeMeter licence works.
+5. VM-IT: checks and actions behave the same (bcdedit output read by GUID only).
+
+---
+
 ## Script work (separate PRs, not wizard code)
 
 | Id | Change | Source of decision | Verification |

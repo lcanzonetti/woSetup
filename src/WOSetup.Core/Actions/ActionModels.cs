@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace WOSetup.Core.Actions;
 
@@ -65,6 +66,51 @@ public sealed class AdapterInfo
     public int PrefixLength { get; init; } = 24;
     public string Gateway { get; init; } = "";
     public string Dns { get; init; } = "";
+}
+
+/// <summary>A recovery USB stick plugged in (list-recovery-usb; made by tools/recovery/New-RecoveryUsb.ps1).</summary>
+public sealed class RecoveryUsbInfo
+{
+    public string Letter { get; init; } = "";
+    public string Label { get; init; } = "";
+    public long FreeGB { get; init; }
+
+    /// <summary>Default folder for this machine's images on the stick: Images\&lt;COMPUTERNAME&gt;.</summary>
+    public string Destination { get; init; } = "";
+}
+
+/// <summary>Inputs of the factory-recovery actions (owner, Nov 2026; OPEN_QUESTIONS 29).</summary>
+public static partial class RecoveryInputs
+{
+    /// <summary>
+    /// Keys the boot manager can bind (WO-Actions.ps1 ConvertTo-BootKeyAction), recommended first.
+    /// F1, F2 and F12 are left to the firmware (setup, boot menu).
+    /// </summary>
+    public static readonly IReadOnlyList<string> Keys = ["F9", "F10", "F11", "F8"];
+
+    // Same rule as Test-ImageName in recovery/partition/WO-Recovery.ps1.
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")]
+    private static partial Regex ImageNameRx();
+
+    public static IReadOnlyList<string> ValidateImageName(string name) =>
+        ImageNameRx().IsMatch(name) ? [] :
+        ["Image name: letters, digits, dot, underscore and hyphen, up to 80 characters, no spaces (e.g. WO7.8.4_W11-25H2_2026-11-20)."];
+
+    /// <summary>Suggested name; the operator adds the WATCHOUT version (WO7.8.4_...).</summary>
+    public static string DefaultImageName(string profile, DateOnly date) => $"{profile}_W11-25H2_{date:yyyy-MM-dd}";
+
+    /// <summary>
+    /// The RAID0's drive letter: where the working directory (or else the WATCHOUT folder)
+    /// is, D when neither is a local path.
+    /// </summary>
+    public static string DataDrive(string? workingDirectory, string? watchoutPath)
+    {
+        foreach (var path in new[] { workingDirectory, watchoutPath })
+            if (path is { Length: >= 3 } && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] == '\\'
+                && char.ToUpperInvariant(path[0]) != 'C')
+                return char.ToUpperInvariant(path[0]).ToString();
+        return "D";
+    }
 }
 
 /// <summary>Input of media-disk-init.</summary>
@@ -185,6 +231,31 @@ public static class ActionSummaryBuilder
         "DHCP is turned off on these adapters and their current IPv4 addresses and default route are replaced.",
         "Each adapter's link resets briefly. If you are connected remotely through one of them, you will lose the connection.",
     ], "APPLY");
+
+    public static Summary RecoveryInstall(string key, string sourceFolder, string dataDrive) => new("Install the recovery boot",
+    [
+        $"Copies the recovery WinPE from {sourceFolder} and WO-Recovery.ps1 to the hidden WO_RECOVERY partition (made in Windows Setup), with target.json naming C: and {dataDrive}: by their partition IDs.",
+        "Adds the boot entry \"WATCHOUT Factory Recovery\" (not in the boot menu). The boot configuration is backed up first; restore with bcdedit /import.",
+        $"Ways in before Windows starts: {key} at power-on, and automatically after failed starts. [Uncertain] Both must be tested on this machine model; the USB stick always works.",
+        "Puts \"Factory recovery.cmd\" on the Public Desktop: restarts once into the recovery from a running Windows.",
+        "Nothing is erased. Running it again replaces the earlier entry.",
+    ], "BOOT");
+
+    public static Summary RecoveryCapture(string name, string dataDrive) => new($"Capture the factory image \"{name}\"",
+    [
+        $"Checks that C: and {dataDrive}: are not encrypted, that {dataDrive}: holds only the WATCHOUT folder and an empty working directory, and that the recovery partition has room.",
+        $"Restarts in 30 seconds into the recovery, which captures C: and {dataDrive}: and then restarts into Windows by itself. This can take a long time: do not switch the machine off.",
+        "The current factory image becomes the fallback and an older fallback is deleted (first, if room is short).",
+        "A factory reset returns the machine to exactly this state: capture only before any show or asset is loaded.",
+        "Start the wizard again afterwards; this step is checked then.",
+    ], "CAPTURE");
+
+    public static Summary RecoveryExport(string destination) => new("Copy the factory image off the machine",
+    [
+        $"Copies the factory image (C: and D: files) to {destination} and checks the copy with SHA-256.",
+        "An older copy in that folder becomes its fallback. Nothing else is touched.",
+        "Keep the copy away from the machine: an image on the same array as C: does not survive an array failure.",
+    ], null);
 
     public static Summary WolEnable() => new("Wake on Magic Packet",
     [

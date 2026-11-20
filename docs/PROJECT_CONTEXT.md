@@ -52,7 +52,8 @@ or real hardware.
 
 Owner decision (20 Nov 2026): the recovery partition is made **in Windows
 Setup**, not by the wizard, so the wizard never shrinks C:. Size 40–50 GB
-(**45 GB** below). Layout of the system disk: EFI | MSR | Windows (C:) |
+(**45 GB** below) is the suggestion, not a limit: make it larger if the
+images need it (C: and D: together; the capture checks the room first). Layout of the system disk: EFI | MSR | Windows (C:) |
 `WO_RECOVERY`. The media RAID0 stays a separate disk.
 
 In Windows Setup, after "Load driver" for the RAID controller (never while
@@ -264,7 +265,8 @@ the three is acceptable; the toolkit must leave a `\Recovery` folder alone.
   WinPE that boots from that partition (RAM disk entry in the BCD) or from
   a USB stick. A reset erases C: and D:; shows and assets are uploaded
   again. New versions: rebuild (strict) or reset + update + capture
-  (faster), WO7 checklist §9. Not
+  (faster), WO7 checklist §9. Built (not yet run on Windows): ARCHITECTURE
+  §14, `recovery/`, `tools/recovery/`, wizard steps WO7-08.13 to 08.18. Not
   "Reset this PC" (rebuilds from WinSxS, restores only inbox apps and INF
   drivers; the scripts also set the WinRE `DisableSetup` and `DisableSR`
   policies). Toolkit (untested templates): `recovery/`. Same machine only, no

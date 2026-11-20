@@ -29,6 +29,7 @@ The procedure already exists and is field-tested as:
 | WATCHOUT 7 automation | `scripts/WO7-Setup.ps1` (`-Phase PreUpdate` / `-Phase PostInstall`) |
 | WATCHOUT 6 automation | `scripts/WO6-Setup.ps1` (`-Phase PreUpdate` / `-Phase PostInstall`) |
 | Why things are the way they are | `docs/PROJECT_CONTEXT.md` |
+| Factory recovery (WO7) | `recovery/` (WinPE side), `tools/recovery/` (WinPE build, USB stick), `docs/ARCHITECTURE.md` §14 |
 
 **The checklists define the order of the wizard. The scripts define what the
 automation does.** Do not invent new tweaks; if you think one is missing, add
@@ -108,7 +109,10 @@ needed when the show account has no password), display scale per output,
 Wake-on-LAN in BIOS, soak test, disk imaging. (BIOS, RAID array creation and
 Windows Setup happen before the wizard.) Automated by the wizard since Oct
 2026: BitLocker off, media drive initialise + format (RAW disk only, typed
-disk number), indexing off, static IPs, Wake on Magic Packet.
+disk number), indexing off, static IPs, Wake on Magic Packet. Since Nov 2026
+(WO7 factory recovery, OPEN_QUESTIONS 29): install the recovery boot (typed
+BOOT), capture the factory image of C: and D: (typed CAPTURE; restore in
+WinPE asks for RESTORE), copy the image off the machine.
 For each: show instructions, then run an automated **check** where one exists
 (e.g. `manage-bde -status C:`, `Get-MpComputerStatus`, `powercfg /getactivescheme`,
 `pnputil /enum-drivers`, `Get-ScheduledTask -TaskPath '\WATCHOUT\'`).

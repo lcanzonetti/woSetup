@@ -78,6 +78,37 @@ function Get-ServiceStart([string]$Name) {
 
 function Get-PhysicalNics { @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -ne 'Disabled' }) }
 
+function Get-WORecoveryInfo {
+    # The WO_RECOVERY partition on the system disk (type Recovery), read
+    # through its volume path (\\?\Volume{...}\): it has no drive letter and a
+    # check must not give it one. [Uncertain] .NET reads \\?\ paths on
+    # Windows PowerShell 5.1 (.NET Framework 4.6.2+): a failure is CantCheck.
+    $sysDisk = (Get-Partition -DriveLetter $env:SystemDrive.Substring(0, 1)).DiskNumber
+    foreach ($p in @(Get-Partition -DiskNumber $sysDisk | Where-Object { "$($_.GptType)" -ieq '{de94bba4-06d1-4d40-a16a-bfd50179d6ac}' })) {
+        $v = $p | Get-Volume -ErrorAction SilentlyContinue
+        if ($v -and $v.FileSystemLabel -eq 'WO_RECOVERY') { return [pscustomobject]@{ Partition = $p; Volume = $v; Root = "$($v.Path)" } }
+    }
+    return $null
+}
+
+function Read-JsonFile([string]$Path) {
+    if (-not [IO.File]::Exists($Path)) { return $null }
+    return ([IO.File]::ReadAllText($Path) | ConvertFrom-Json)
+}
+
+function Get-JsonProp($Object, [string]$Name) {
+    if ($null -ne $Object -and $Object.PSObject.Properties[$Name]) { return $Object.$Name }
+    return ''
+}
+
+function Get-BcdText([string]$Id) {
+    # bcdedit output as one string; GUIDs in it do not depend on the display language.
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $out = @(& bcdedit.exe /enum $Id 2>&1 | ForEach-Object { "$_" }); $code = $LASTEXITCODE }
+    finally { $ErrorActionPreference = $prev }
+    return [pscustomobject]@{ Code = $code; Text = ($out -join "`n") }
+}
+
 function Get-WatchoutPathFor6 {
     # Same lookup as WO6-Setup.ps1: option, Uninstall entry, default folders.
     $isWo = { param($p) [bool]$p -and ([IO.File]::Exists([IO.Path]::Combine($p, 'WATCHPOINT.exe')) -or
@@ -389,6 +420,61 @@ $Checks = [ordered]@{
         $on = @($s | Where-Object { $_.StartMode -ne 'Disabled' })
         if ($on) { return New-Check 'NotDone' "$(($on | ForEach-Object { "$($_.DisplayName): $($_.StartMode)" }) -join '; ')." }
         New-Check 'Done' "Disabled: $(($s | ForEach-Object { $_.DisplayName }) -join ', ')."
+    }
+
+    # Factory recovery (owner, Nov 2026; OPEN_QUESTIONS 29). Read-only.
+    'recovery-partition' = {
+        $r = Get-WORecoveryInfo
+        if (-not $r) { return New-Check 'NotDone' 'No WO_RECOVERY partition (type Recovery) on the system disk. It is created in Windows Setup: docs/PROJECT_CONTEXT.md section 2a.' }
+        $gb = [math]::Round($r.Partition.Size / 1GB)
+        $letter = "$($r.Partition.DriveLetter)"
+        $note = if ($letter -match '^[A-Za-z]$') { " Windows shows it as ${letter}: (remove the letter in Disk Management)." } else { '' }
+        $small = if ($gb -lt 40) { ' Smaller than the suggested 45 GB: capture checks the room before it starts.' } else { '' }
+        New-Check 'Done' "WO_RECOVERY: $gb GB, $([math]::Round($r.Volume.SizeRemaining / 1GB)) GB free (disk $($r.Partition.DiskNumber), partition $($r.Partition.PartitionNumber)).$small$note"
+    }
+
+    'recovery-boot' = {
+        $r = Get-WORecoveryInfo
+        if (-not $r) { return New-Check 'NotDone' 'No WO_RECOVERY partition.' }
+        $missing = @()
+        foreach ($f in 'WO_RECOVERY.tag', 'WO-Recovery.ps1', 'WORecovery\boot.wim', 'WORecovery\boot.sdi', 'target.json') {
+            if (-not [IO.File]::Exists($r.Root + $f)) { $missing += $f }
+        }
+        if ($missing) { return New-Check 'NotDone' "Not installed on the recovery partition: $($missing -join ', ')." }
+        $t = Read-JsonFile ($r.Root + 'target.json')
+        $boot = Get-JsonProp $t 'Boot'
+        $entry = "$(Get-JsonProp $boot 'EntryGuid')"
+        if (-not $entry) { return New-Check 'NotDone' 'target.json has no boot entry.' }
+        if ((Get-BcdText $entry).Code -ne 0) { return New-Check 'NotDone' "Boot entry $entry is missing from the boot configuration (bcdboot or a Windows reinstall removes it): install the recovery boot again." }
+        $extras = @()
+        if ((Get-BcdText '{default}').Text -match [regex]::Escape($entry)) { $extras += 'failover set' } else { $extras += 'failover NOT set' }
+        if ((Get-BcdText '{bootmgr}').Text -match [regex]::Escape($entry)) { $extras += "key $(Get-JsonProp $boot 'Hotkey')" } else { $extras += 'recovery key NOT set' }
+        $sysGuid = "$(Get-JsonProp (Get-JsonProp $t 'System') 'PartitionGuid')"
+        $nowGuid = "{$("$((Get-Partition -DriveLetter $env:SystemDrive.Substring(0, 1)).Guid)".Trim('{', '}').ToLowerInvariant())}"
+        if ($sysGuid -ne $nowGuid) { return New-Check 'NotDone' "target.json names another system partition ($sysGuid, now $nowGuid): install the recovery boot again." }
+        $state = if ($extras -cmatch 'NOT') { 'NotDone' } else { 'Done' }
+        New-Check $state "Boot entry $entry, WinPE from ADK $(Get-JsonProp $boot 'AdkVersion'); $($extras -join ', ') [Uncertain: test the key and the failover on this model]."
+    }
+
+    'factory-image' = {
+        $r = Get-WORecoveryInfo
+        if (-not $r) { return New-Check 'NotDone' 'No WO_RECOVERY partition.' }
+        if ([IO.File]::Exists($r.Root + 'pending.json')) {
+            return New-Check 'NotDone' 'Capture requested: restart; the recovery captures C: and D: and comes back to Windows by itself. Then check again.'
+        }
+        $last = Read-JsonFile ($r.Root + 'Logs\last-result.json')
+        $meta = Read-JsonFile ($r.Root + 'Images\factory.json')
+        $haveC = [IO.File]::Exists($r.Root + 'Images\factory_C.wim')
+        $haveD = [IO.File]::Exists($r.Root + 'Images\factory_D.wim')
+        $lastText = ''
+        if ($last) { $lastText = " Last recovery run: $(Get-JsonProp $last 'Action') $(Get-JsonProp $last 'Status') $(Get-JsonProp $last 'EndedAt'): $(Get-JsonProp $last 'Message')" }
+        if (-not ($meta -and $haveC -and $haveD)) { return New-Check 'NotDone' "No complete factory image (C: and D:).$lastText" }
+        $bytes = (New-Object IO.FileInfo ($r.Root + 'Images\factory_C.wim')).Length + (New-Object IO.FileInfo ($r.Root + 'Images\factory_D.wim')).Length
+        $prev = Read-JsonFile ($r.Root + 'Images\factory_prev.json')
+        $fallback = if ($prev) { "fallback '$(Get-JsonProp $prev 'Name')'" } else { 'no fallback yet' }
+        $state = 'Done'
+        if ($last -and "$(Get-JsonProp $last 'Action')" -eq 'Capture' -and "$(Get-JsonProp $last 'Status')" -eq 'Failed') { $state = 'NotDone' }
+        New-Check $state "'$(Get-JsonProp $meta 'Name')' captured $(Get-JsonProp $meta 'CapturedAt'), $([math]::Round($bytes / 1GB, 1)) GB; $fallback.$lastText"
     }
 
     'watchpoint-task' = {

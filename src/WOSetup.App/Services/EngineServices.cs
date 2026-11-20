@@ -66,6 +66,8 @@ public sealed class EngineWorkspace(AppPaths paths)
         for (var i = 2; Directory.Exists(dir); i++) dir = System.IO.Path.Combine(runs, $"{name}_{i}");
         Directory.CreateDirectory(dir);
         var script = Extract($"engine/{helperScript}", dir, helperScript);
+        // The recovery actions copy WO-Recovery.ps1 to the recovery partition and dot-source its helpers.
+        if (helperScript == "WO-Actions.ps1") Extract("engine/WO-Recovery.ps1", dir, "WO-Recovery.ps1");
         return new HelperFolder(dir, script, System.IO.Path.Combine(dir, "params.json"), System.IO.Path.Combine(dir, "result.json"),
             System.IO.Path.Combine(dir, "stdout.log"), System.IO.Path.Combine(dir, "stderr.log"));
     }

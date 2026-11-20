@@ -109,4 +109,44 @@ public class ActionModelTests
         Assert.NotEmpty(new MediaDiskInput(1, "Me:dia", 4096).Validate());
         Assert.NotEmpty(new MediaDiskInput(-1, "Media", 4096).Validate());
     }
+    [Fact]
+    public void Recovery_steps_that_write_ask_for_a_typed_word()
+    {
+        // Owner, Nov 2026: typed confirmations stay (AGENTS.md rule 7).
+        Assert.Equal("BOOT", ActionSummaryBuilder.RecoveryInstall("F9", @"E:\WOSetupRecovery", "D").TypedWord);
+        Assert.Equal("CAPTURE", ActionSummaryBuilder.RecoveryCapture("WO7_W11-25H2_2026-11-20", "D").TypedWord);
+        Assert.Null(ActionSummaryBuilder.RecoveryExport(@"F:\Images\WO-DISP-01").TypedWord);
+        Assert.Contains(ActionSummaryBuilder.RecoveryCapture("X", "D").Lines, l => l.Contains("before any show"));
+    }
+
+    [Theory]
+    [InlineData("WO7.8.4_W11-25H2_2026-11-20", true)]
+    [InlineData("WO7_W11-25H2_2026-11-20", true)]
+    [InlineData("WO7 factory", false)]
+    [InlineData("", false)]
+    [InlineData(".hidden", false)]
+    [InlineData("a/b", false)]
+    public void Image_names_follow_the_WinPE_rule(string name, bool ok) =>
+        Assert.Equal(ok, RecoveryInputs.ValidateImageName(name).Count == 0);
+
+    [Fact]
+    public void Default_image_name_is_valid() =>
+        Assert.Empty(RecoveryInputs.ValidateImageName(RecoveryInputs.DefaultImageName("WO7", new DateOnly(2026, 11, 20))));
+
+    [Theory]
+    [InlineData(@"E:\WO7-Work", null, "E")]
+    [InlineData(null, @"D:\WATCHOUT 7", "D")]
+    [InlineData(@"C:\WATCHOUT\.wo", null, "D")]
+    [InlineData(@"\\nas\share", null, "D")]
+    [InlineData(null, null, "D")]
+    public void Data_drive_comes_from_the_working_directory(string? workDir, string? woPath, string expected) =>
+        Assert.Equal(expected, RecoveryInputs.DataDrive(workDir, woPath));
+
+    [Fact]
+    public void Recovery_keys_leave_the_firmware_keys_alone()
+    {
+        Assert.Equal("F9", RecoveryInputs.Keys[0]);
+        Assert.DoesNotContain("F12", RecoveryInputs.Keys);
+        Assert.DoesNotContain("F1", RecoveryInputs.Keys);
+    }
 }

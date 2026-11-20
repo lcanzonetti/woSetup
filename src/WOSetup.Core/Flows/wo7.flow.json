@@ -1043,8 +1043,8 @@
         {
           "id": "WO7-08.13",
           "title": "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)",
-          "kind": "manual",
-          "details": "Get-Partition shows it as type Recovery, about 45 GB, no drive letter. Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a.",
+          "kind": "check",
+          "details": "Type Recovery, label WO_RECOVERY, no drive letter; 45 GB suggested, larger is fine. Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a.",
           "roles": [
             "Display",
             "Production"
@@ -1055,13 +1055,36 @@
           "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false
+          "informational": false,
+          "check": "recovery-partition"
         },
         {
           "id": "WO7-08.14",
-          "title": "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry",
+          "title": "Install the recovery boot: WinPE on the recovery partition, boot entry, recovery key, failover",
+          "kind": "automated",
+          "details": "Needs the WOSetupRecovery folder (tools/recovery/Build-WinPE.ps1, with the RAID drivers) next to the wizard. Copies WinPE and the recovery script to WO_RECOVERY, adds a boot entry outside the boot menu, a key at power-on and the failover after failed starts, and a \"Factory recovery.cmd\" on the Public Desktop. Changes the boot configuration (backed up first): asks you to type BOOT. [Uncertain] Test the key and the failover on each model.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": true,
+          "uncertain": true,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false,
+          "check": "recovery-boot",
+          "action": {
+            "type": "command",
+            "name": "recovery-install"
+          }
+        },
+        {
+          "id": "WO7-08.14a",
+          "title": "Test the ways into the recovery once on this machine model: the key at power-on and the USB stick",
           "kind": "manual",
-          "details": "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: a factory reset puts this image back.",
+          "details": "Restart and hold the recovery key (F9 by default); then boot the recovery USB stick from the firmware boot menu (F12 on ThinkStation). Leave the menu with Restart. [Uncertain] The key and the failover after failed starts are not documented by Microsoft for a custom WinPE.",
           "roles": [
             "Display",
             "Production"
@@ -1069,7 +1092,7 @@
           "needsInternet": false,
           "mustBeOffline": false,
           "confirm": false,
-          "uncertain": false,
+          "uncertain": true,
           "optionsStep": false,
           "autoDone": false,
           "informational": false
@@ -1077,19 +1100,24 @@
         {
           "id": "WO7-08.15",
           "title": "Capture the factory image of C: and the RAID0, before any show or asset is loaded",
-          "kind": "manual",
-          "details": "Restart into the recovery, choose Capture. BitLocker must be off (step 8.3); no Sysprep; the working directory must be empty. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>. A factory reset erases C: and D: and puts this image back (shows and assets are uploaded again).",
+          "kind": "automated",
+          "details": "Checks BitLocker, the RAID0 content (WATCHOUT folder + empty working directory only) and the room, then restarts into the recovery, which captures C: and D: and comes back to Windows by itself. Asks you to type CAPTURE. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>. A factory reset erases C: and D: and puts this image back (shows and assets are uploaded again).",
           "roles": [
             "Display",
             "Production"
           ],
           "needsInternet": false,
           "mustBeOffline": false,
-          "confirm": false,
+          "confirm": true,
           "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false
+          "informational": false,
+          "check": "factory-image",
+          "action": {
+            "type": "command",
+            "name": "recovery-capture"
+          }
         },
         {
           "id": "WO7-08.16",
@@ -1128,8 +1156,8 @@
         {
           "id": "WO7-08.18",
           "title": "Copy the valid factory image off the machine (recovery USB stick or NAS)",
-          "kind": "manual",
-          "details": "An image on the same array as C: does not survive an array failure.",
+          "kind": "automated",
+          "details": "Copies the image to the recovery stick (tools/recovery/New-RecoveryUsb.ps1) or a folder you give, checked with SHA-256. An image on the same array as C: does not survive an array failure.",
           "roles": [
             "Display",
             "Production"
@@ -1140,7 +1168,11 @@
           "uncertain": false,
           "optionsStep": false,
           "autoDone": false,
-          "informational": false
+          "informational": false,
+          "action": {
+            "type": "command",
+            "name": "recovery-export"
+          }
         }
       ]
     },

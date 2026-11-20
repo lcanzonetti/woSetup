@@ -257,23 +257,34 @@ def wo7():
             step("WO7-08.12", "Optional: secpol.msc > Network List Manager Policies > User cannot change location", "manual"),
             # Factory image (owner, Nov 2026; OPEN_QUESTIONS 29): the machine as it is at the end of the
             # build, C: and the RAID0, captured before any show and then tested by the soak test.
-            # Manual until the recovery toolkit in recovery/ is ported and tested.
-            step("WO7-08.13", "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)", "manual",
-                 "Get-Partition shows it as type Recovery, about 45 GB, no drive letter. "
-                 "Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a."),
-            step("WO7-08.14", "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry", "manual",
-                 "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: "
-                 "a factory reset puts this image back."),
-            step("WO7-08.15", "Capture the factory image of C: and the RAID0, before any show or asset is loaded", "manual",
-                 "Restart into the recovery, choose Capture. BitLocker must be off (step 8.3); no Sysprep; the working "
-                 "directory must be empty. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>. A factory reset erases C: and D: "
-                 "and puts this image back (shows and assets are uploaded again)."),
+            # WinPE side: recovery/partition/WO-Recovery.ps1; actions in Engine/WO-Actions.ps1.
+            step("WO7-08.13", "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)", "check",
+                 "Type Recovery, label WO_RECOVERY, no drive letter; 45 GB suggested, larger is fine. "
+                 "Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a.", check="recovery-partition"),
+            step("WO7-08.14", "Install the recovery boot: WinPE on the recovery partition, boot entry, recovery key, failover", "automated",
+                 "Needs the WOSetupRecovery folder (tools/recovery/Build-WinPE.ps1, with the RAID drivers) next to the wizard. "
+                 "Copies WinPE and the recovery script to WO_RECOVERY, adds a boot entry outside the boot menu, a key at power-on "
+                 "and the failover after failed starts, and a \"Factory recovery.cmd\" on the Public Desktop. Changes the boot "
+                 "configuration (backed up first): asks you to type BOOT. [Uncertain] Test the key and the failover on each model.",
+                 check="recovery-boot", action=command("recovery-install"), confirm=True, uncertain=True),
+            step("WO7-08.14a", "Test the ways into the recovery once on this machine model: the key at power-on and the USB stick", "manual",
+                 "Restart and hold the recovery key (F9 by default); then boot the recovery USB stick from the firmware boot menu "
+                 "(F12 on ThinkStation). Leave the menu with Restart. [Uncertain] The key and the failover after failed starts "
+                 "are not documented by Microsoft for a custom WinPE.", uncertain=True),
+            step("WO7-08.15", "Capture the factory image of C: and the RAID0, before any show or asset is loaded", "automated",
+                 "Checks BitLocker, the RAID0 content (WATCHOUT folder + empty working directory only) and the room, then restarts "
+                 "into the recovery, which captures C: and D: and comes back to Windows by itself. Asks you to type CAPTURE. "
+                 "Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>. A factory reset erases C: and D: and puts this image back "
+                 "(shows and assets are uploaded again).",
+                 check="factory-image", action=command("recovery-capture"), confirm=True),
             step("WO7-08.16", "All nodes discover each other; asset transfer to the RAID0 works", "manual"),
             step("WO7-08.17", "Soak test: representative show for several hours on all outputs", "manual",
                  "Passed: the factory image is valid. A change is needed: factory reset, make the change before loading "
                  "any show, capture again, soak test again."),
-            step("WO7-08.18", "Copy the valid factory image off the machine (recovery USB stick or NAS)", "manual",
-                 "An image on the same array as C: does not survive an array failure."),
+            step("WO7-08.18", "Copy the valid factory image off the machine (recovery USB stick or NAS)", "automated",
+                 "Copies the image to the recovery stick (tools/recovery/New-RecoveryUsb.ps1) or a folder you give, checked with "
+                 "SHA-256. An image on the same array as C: does not survive an array failure.",
+                 action=command("recovery-export")),
         ]},
     ]
 

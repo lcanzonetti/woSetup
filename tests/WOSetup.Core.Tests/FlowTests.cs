@@ -147,4 +147,23 @@ public class OpenTargetTests
                 foreach (var t in OpenTargets.Extract(s.Title + " " + s.Details))
                     Assert.Matches(@"^([A-Za-z0-9]+\.(msc|cpl)|ms-settings:.+|windowsdefender://.+|netplwiz|dfrgui|UserAccountControlSettings\.exe|SystemProperties\w+\.exe)$", t);
     }
+    [Fact]
+    public void Factory_recovery_steps_are_in_section_8_in_order()
+    {
+        // Owner, Nov 2026 (OPEN_QUESTIONS 29): partition check, install, capture before any show,
+        // then the node/asset test and the soak test, then the copy off the machine.
+        var flow = FlowLoader.Load(Profile.WO7);
+        var ids = flow.AllSteps.Select(s => s.Id).ToList();
+        Assert.Equal("recovery-partition", flow.Find("WO7-08.13")!.Check);
+        var install = flow.Find("WO7-08.14")!;
+        var capture = flow.Find("WO7-08.15")!;
+        var export = flow.Find("WO7-08.18")!;
+        Assert.Equal(("recovery-install", "recovery-boot"), (install.Action!.Name, install.Check));
+        Assert.Equal(("recovery-capture", "factory-image"), (capture.Action!.Name, capture.Check));
+        Assert.Equal("recovery-export", export.Action!.Name);
+        Assert.True(install.Confirm && capture.Confirm);
+        Assert.True(ids.IndexOf("WO7-08.15") < ids.IndexOf("WO7-08.16"));   // capture before the asset test
+        Assert.True(ids.IndexOf("WO7-08.16") < ids.IndexOf("WO7-08.17"));   // ... and the soak test
+        Assert.DoesNotContain(FlowLoader.Load(Profile.WO6).AllSteps, s => s.Action?.Name?.StartsWith("recovery-") == true);
+    }
 }

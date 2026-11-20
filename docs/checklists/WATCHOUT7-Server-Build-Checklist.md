@@ -8,7 +8,7 @@ Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (M
 
 This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2).
 
-In Windows Setup, leave room for the factory restore: on the system disk (the system array, with its RAID driver loaded) create EFI, MSR, Windows and a **45 GB recovery partition labelled `WO_RECOVERY`** at the end of the disk with DiskPart (Shift+F10), then install Windows into the Windows partition. Commands: `docs/PROJECT_CONTEXT.md` §2a. The media RAID0 is a separate disk; a factory reset erases it too (WATCHOUT is installed there; shows and assets are uploaded again). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
+In Windows Setup, leave room for the factory restore: on the system disk (the system array, with its RAID driver loaded) create EFI, MSR, Windows and a **recovery partition labelled `WO_RECOVERY`** (45 GB suggested; larger is fine) at the end of the disk with DiskPart (Shift+F10), then install Windows into the Windows partition. Commands: `docs/PROJECT_CONTEXT.md` §2a. The media RAID0 is a separate disk; a factory reset erases it too (WATCHOUT is installed there; shows and assets are uploaded again). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest"). For the factory recovery, also the `WOSetupRecovery` folder next to the wizard (built once on a technician PC with `tools/recovery/Build-WinPE.ps1`, with the RAID drivers) and a recovery USB stick (`tools/recovery/New-RecoveryUsb.ps1`).
 
 ## 1. First boot, still offline
 
@@ -117,29 +117,30 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 
 ### Factory image
 
-The factory image is the machine exactly as it is now, at the end of the build: C: and the RAID0 (D:, with the WATCHOUT folder and an empty working directory). A factory reset erases C: and D: and puts the image back, so it also repairs a damaged WATCHOUT install; shows and assets are uploaded again afterwards. System Restore is off and "Reset this PC" is not used. Take the image **before any show or asset is loaded**, then test it with the soak test. Recovery toolkit: `recovery/` in this repository. Not yet automated by the wizard.
+The factory image is the machine exactly as it is now, at the end of the build: C: and the RAID0 (D:, with the WATCHOUT folder and an empty working directory). A factory reset erases C: and D: and puts the image back, so it also repairs a damaged WATCHOUT install; shows and assets are uploaded again afterwards. System Restore is off and "Reset this PC" is not used. Take the image **before any show or asset is loaded**, then test it with the soak test. Design: `docs/ARCHITECTURE.md` §14.
 
-- [ ] Recovery partition present: `Get-Partition` shows `WO_RECOVERY` after C:, type Recovery, no drive letter (created in Windows Setup, see "Before you start")
-- [ ] Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry
-- [ ] BitLocker still off on C: (`manage-bde -status C:`); no Sysprep (same-machine restore)
+- [ ] Recovery partition present: type Recovery, label `WO_RECOVERY`, no drive letter (created in Windows Setup, see "Before you start")
+- [ ] Install the recovery boot (wizard; type `BOOT`): WinPE on the recovery partition, boot entry, recovery key at power-on (F9 by default), start of the recovery after failed Windows starts, `Factory recovery.cmd` on the Public Desktop
+- [ ] Test the ways in once on this machine model: the key at power-on, and the USB stick from the firmware boot menu (F12 on ThinkStation); leave the menu with "Restart" [Uncertain: key and failover are not documented by Microsoft for a custom WinPE]
+- [ ] BitLocker still off on C: and D: (`manage-bde -status`); no Sysprep (same-machine restore)
 - [ ] No show or asset loaded yet; the working directory is empty
-- [ ] Capture the factory image (C: and D:): restart into the recovery, choose Capture, name it `WO7.<version>_W11-25H2_<YYYY-MM-DD>` (e.g. `WO7.8.4_W11-25H2_2026-11-20`)
+- [ ] Capture the factory image (wizard; type `CAPTURE`), name it `WO7.<version>_W11-25H2_<YYYY-MM-DD>` (e.g. `WO7.8.4_W11-25H2_2026-11-20`): the machine restarts into the recovery, captures C: and D:, and comes back to Windows by itself; then start the wizard again
 
 ### Test the machine and the image
 
 - [ ] All nodes discover each other; asset transfer to the RAID0 works
 - [ ] Soak test: representative show for several hours on all outputs. Passed → the factory image is valid. A change is needed → factory reset, make the change before loading any show, capture again, soak test again
-- [ ] Copy the valid image off the machine (recovery USB stick or NAS): an image on the same array as C: does not survive an array failure
+- [ ] Copy the valid image off the machine (wizard: recovery USB stick or a folder you give, checked with SHA-256): an image on the same array as C: does not survive an array failure
 
 ## 9. Maintenance
 
 - [ ] No in-place updates: Windows Update is disabled for good. To move to a newer Windows, reinstall from a newer ISO and rebuild with this checklist. Check activation with `slmgr /xpr` (the Settings Activation page errors with updates disabled)
 - [ ] NVIDIA: update only to versions tested for your WATCHOUT release
-- [ ] Factory reset: restart into the recovery, choose Restore and type `RESTORE`. C: and D: return to the state at the end of the build (WATCHOUT included); upload shows and assets again
+- [ ] Factory reset: get into the recovery (desktop `Factory recovery.cmd`, the recovery key at power-on, automatically after failed starts, or the USB stick), choose Restore and type `RESTORE`. C: and D: return to the state at the end of the build (WATCHOUT included); upload shows and assets again. If Windows does not start afterwards: recovery menu → "Repair boot files", then install the recovery boot again from the wizard
 - [ ] Never capture a machine that has been used for shows: show data would become part of the factory state. To put a new version into the factory image, use one of these two ways, then soak test and copy the new image off the machine (the previous image is kept as the fallback):
   - **Rebuild (strict):** reinstall Windows from the ISO and follow this whole checklist with the new version, then capture. Always for a new Windows ISO, a new major WATCHOUT version or a hardware change
   - **Update (faster):** factory reset, install the update before loading any show, then capture. For minor WATCHOUT updates (7.8.x), NVIDIA drivers, other drivers. The image is then "old version updated", not a first install
-- [ ] RAID driver or BIOS RAID module update: keep their versions matched; put the new driver into the factory image (update way above) **and** into the recovery WinPE (rebuild it), or the recovery cannot see C:
+- [ ] RAID driver or BIOS RAID module update: keep their versions matched; put the new driver into the factory image (update way above) **and** into the recovery WinPE (`Build-WinPE.ps1 -DriverFolder`, then install the recovery boot again and remake the USB stick), or the recovery cannot see C:
 - [ ] Array shows Offline after no change of yours: check the drive in RAIDXpert2 (event log, health)
 
 ## Sources

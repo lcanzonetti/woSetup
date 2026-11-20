@@ -650,6 +650,53 @@ public sealed partial class MainViewModel : ObservableObject
                 input = new Dictionary<string, object> { ["Adapters"] = entries.Select(e => e.ToParams()).ToList() };
                 break;
             }
+            // Factory recovery (owner, Nov 2026; OPEN_QUESTIONS 29).
+            case "recovery-install":
+            {
+                var src = Path.Combine(SystemInfo.ExeDirectory, "WOSetupRecovery");
+                if (!File.Exists(Path.Combine(src, "manifest.json")))
+                {
+                    _dialogs.Error("Recovery WinPE", $"No recovery WinPE found in {src}.\n\n" +
+                        "Build it once on a technician PC with tools/recovery/Build-WinPE.ps1 (Windows ADK + WinPE add-on, " +
+                        "with the RAID drivers) and put the WOSetupRecovery folder next to WOSetupWizard.exe.");
+                    return;
+                }
+                var keys = RecoveryInputs.Keys;
+                var k = _dialogs.Choose("Recovery key", "Key to press at power-on to open the factory recovery:",
+                    ["Pick a key this machine's firmware does not use itself (ThinkStation: F1 setup, F12 boot menu).",
+                     "[Uncertain] Whether the key is caught depends on the firmware: test it after installing. The USB stick always works."],
+                    [.. keys, "Cancel"]);
+                if (k < 0 || k >= keys.Count) return;
+                var opts = Session!.State.Options;
+                var dataDrive = RecoveryInputs.DataDrive(opts.WorkingDirectory, opts.WatchoutPath);
+                summary = ActionSummaryBuilder.RecoveryInstall(keys[k], src, dataDrive);
+                input = new Dictionary<string, object>
+                {
+                    ["SourceFolder"] = src, ["Hotkey"] = keys[k], ["DataDrive"] = dataDrive,
+                    ["WatchoutPath"] = opts.WatchoutPath ?? "", ["WorkingDirectory"] = opts.WorkingDirectory ?? "",
+                };
+                break;
+            }
+            case "recovery-capture":
+            {
+                if (AskImageName() is not { } imageName) return;
+                var opts = Session!.State.Options;
+                summary = ActionSummaryBuilder.RecoveryCapture(imageName, RecoveryInputs.DataDrive(opts.WorkingDirectory, opts.WatchoutPath));
+                input = new Dictionary<string, object> { ["Name"] = imageName };
+                break;
+            }
+            case "recovery-export":
+            {
+                var sticks = await Query<RecoveryUsbInfo>("list-recovery-usb");
+                if (sticks is null) return;
+                var message = sticks.Count == 0
+                    ? "No recovery USB stick found (made with tools/recovery/New-RecoveryUsb.ps1). Folder to copy the factory image to (USB stick or network share):"
+                    : $"Recovery stick {sticks[0].Letter}: ({sticks[0].FreeGB} GB free). Folder to copy the factory image to:";
+                if (_dialogs.Prompt("Copy the factory image", message, sticks.FirstOrDefault()?.Destination ?? "") is not { } dest) return;
+                summary = ActionSummaryBuilder.RecoveryExport(dest);
+                input = new Dictionary<string, object> { ["Destination"] = dest };
+                break;
+            }
             default:
                 _dialogs.Error("Action", $"This build does not know the action '{name}'.");
                 return;
@@ -687,6 +734,11 @@ public sealed partial class MainViewModel : ObservableObject
             EndBusy();
         }
 
+        if (name == "recovery-capture" && status is StepStatus.Done or StepStatus.DoneWithWarnings)
+            _dialogs.Info("Restarting into the recovery",
+                "The machine restarts in 30 seconds into the factory recovery, captures C: and D:, and restarts into Windows by itself. " +
+                "This can take a long time: do not switch it off.\n\nAfterwards, sign in and start the wizard again from the USB stick: this step is checked then.");
+
         // Read back with the step's own check (never pretend): it may turn "done" into "not done".
         if (status is StepStatus.Done or StepStatus.DoneWithWarnings && step.HasCheck)
             await CheckSteps([step], step.Id, showOutput: false);
@@ -695,7 +747,22 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshAll();
     }
 
-    /// <summary>Read-only list from WO-Actions.ps1 (disks, adapters). Null when it failed.</summary>
+    /// <summary>Factory image name, pre-filled and checked like WO-Recovery.ps1 does. Null when cancelled.</summary>
+    private string? AskImageName()
+    {
+        var name = RecoveryInputs.DefaultImageName(Session!.Flow.Profile.ToString(), DateOnly.FromDateTime(DateTime.Now));
+        while (true)
+        {
+            name = _dialogs.Prompt("Factory image name",
+                "Name of the factory image: what is inside it, e.g. WO7.8.4_W11-25H2_2026-11-20 (add the WATCHOUT version).", name);
+            if (name is null) return null;
+            var errors = RecoveryInputs.ValidateImageName(name);
+            if (errors.Count == 0) return name;
+            _dialogs.Error("Factory image name", string.Join("\n", errors));
+        }
+    }
+
+    /// <summary>Read-only list from WO-Actions.ps1 (disks, adapters, recovery sticks). Null when it failed.</summary>
     private async Task<List<T>?> Query<T>(string query)
     {
         BeginBusy(false, "Reading the machine…");
