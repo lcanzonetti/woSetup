@@ -583,6 +583,27 @@ Same-machine restore only: no Sysprep. Details: PROJECT_CONTEXT §2a and §8.
   WO6 not changed yet.
 - Toolkit committed unchanged in `recovery/`; `recovery/README.md` lists the
   issues found by reading it.
+- **A factory reset is a real factory reset** (owner, 20 Nov 2026): the
+  machine as at the end of the build (Windows and WATCHOUT freshly
+  installed and tweaked), also when WATCHOUT itself is damaged. Shows and
+  assets are not kept; the operator uploads them again.
+  - **WATCHOUT 7 is installed on the RAID0 (D:)**, the working directory in
+    its own folder outside the program folder.
+  - The image covers **C: and D:**, captured together **before any show or
+    asset is loaded**; the soak test runs after the capture and validates
+    the image. A restore erases (formats) C: and D: and puts both back.
+  - Restoring an image taken at that moment gives the same machine as
+    running the WATCHOUT installer again, without the parts that cannot be
+    automated (no documented silent install; working directory set in
+    WATCHOUT's UI; NVIDIA Control Panel manual). So the reset does not run
+    the installer.
+  - **Two ways to put a new version into the factory image** (never capture
+    a machine that was used for shows): *rebuild* (strict: new Windows
+    install + whole checklist, then capture; for a new Windows ISO, a new
+    major WATCHOUT version, a hardware change) and *update* (faster: factory
+    reset, install the update before any show, capture; for minor WATCHOUT
+    updates, NVIDIA and other drivers). **[Uncertain]** how much an
+    in-place WATCHOUT update leaves behind compared with a first install.
 
 **Still open:**
 
@@ -635,6 +656,14 @@ Same-machine restore only: no Sysprep. Details: PROJECT_CONTEXT §2a and §8.
   injected, built on the owner's workstation. Must boot with Secure Boot on
   after the Windows Production PCA 2011 expiry (19 Oct 2026, KB5132953)
   **[Uncertain until tested]**.
-- **29f.** Where WATCHOUT 7 keeps its local cache and settings: anything on
-  C: returns to the captured state after a restore **[Uncertain]**.
+- **29f.** ~~Where WATCHOUT 7 keeps its local cache and settings~~: closed
+  by the "real factory reset" decision (C: and D: both return to the end of
+  the build).
+- **29g.** Formatting D: on restore resets the drive's own settings: the
+  root folder's "not content indexed" attribute (wizard step 3.3) and the
+  volume label. **[Uncertain]** whether applying the D: image brings the
+  root attribute back; the restore should set it again, and "Check this
+  machine" shows it. If the RAID0 was rebuilt, the restore needs it
+  initialised and formatted first, and its letter must be D: again
+  **[Uncertain]** whether Windows gives it back by itself.
 

@@ -11,6 +11,25 @@ decisions and open items: `docs/PROJECT_CONTEXT.md` §2a and §8,
 | `recovery-partition/wo-recovery.cmd` | WinPE, from the recovery partition or a USB stick | Menu: restore `\Images\factory.wim` to the volume carrying `WO_SYSTEM.tag`, capture a new image (previous one kept as `factory_prev.wim`), image info, `bcdboot` repair, command prompt, reboot |
 | `windows/install-recovery-boot.cmd` | Windows, once, as administrator, with the recovery partition mounted as `R:` | BCD backup, RAM-disk WinPE loader entry "WATCHOUT Factory Restore" (UEFI, not in the boot menu), `FactoryRestore.cmd` on the Public Desktop (`bcdedit /bootsequence` + restart) |
 
+## Required behaviour (owner, 20 Nov 2026) — not in the templates yet
+
+A factory reset returns the machine to the end of the build, WATCHOUT
+included (WATCHOUT 7 is installed on the RAID0, D:). The templates handle C:
+only; the port must:
+
+- **Capture** C: and D: in one go, as two images with the same name and date
+  (e.g. `factory_C.wim` + `factory_D.wim`), before any show is loaded. Warn
+  and ask before capturing if D: holds more than the WATCHOUT folder and an
+  empty working directory (show data would become factory state).
+- **Restore** both: format C: and D:, apply both images, refuse if the two
+  do not come from the same capture. Find D: by its partition GUID (stored
+  with the system partition's in `target.json`), not by letter. The
+  confirmation screen (`RESTORE`) says that D: is erased too.
+- After the restore, set the D: root folder's "not content indexed"
+  attribute again (OPEN_QUESTIONS 29g).
+- Keep the previous pair as the fallback (`factory_prev_*`), as today for
+  C: alone.
+
 ## Known issues found by reading (not fixed yet)
 
 To be handled when the toolkit is ported to PowerShell (plan step 1); the
@@ -38,8 +57,8 @@ templates are kept unchanged here so the starting point is on record.
    (`\Windows\System32\winload.efi` is the other usual location).
 6. **Space during capture:** `factory_prev.wim` is deleted only after
    `new.wim` succeeds, so the partition briefly holds three images.
-   With 45 GB this needs images of about 14 GB or less **[Uncertain:
-   real size unknown until the first capture]**.
+   With 45 GB this needs images of about 14 GB or less, C: and D: together
+   **[Uncertain: real size unknown until the first capture]**.
 7. **RAID driver not in WinPE:** the `startnet.cmd` header does not inject
    drivers; without `dism /Add-Driver` (AMD `rcbottom`/`rcraid`/`rccfg`,
    Broadcom `megasas35`) WinPE cannot see C: on a RAID system array.

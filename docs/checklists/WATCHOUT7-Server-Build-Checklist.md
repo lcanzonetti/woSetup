@@ -2,13 +2,13 @@
 
 Oct 14, 2026 · factory restore added Nov 20, 2026 · @Lorenzo
 
-Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (MicroWin), AMD RAID system and media arrays, WO7-Setup.ps1 for driver lockdown and the Dataton GPO set. Written for WATCHOUT 7.8.4 and Windows 11 25H2. The finished system volume is kept as a factory image on a hidden recovery partition (section 8).
+Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (MicroWin), AMD RAID system and media arrays, WO7-Setup.ps1 for driver lockdown and the Dataton GPO set. Written for WATCHOUT 7.8.4 and Windows 11 25H2. The finished machine (C: and the RAID0 D:) is kept as a factory image on a hidden recovery partition (section 8): a factory reset returns it to the state at the end of this checklist.
 
 ## Before you start
 
 This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2).
 
-In Windows Setup, leave room for the factory restore: on the system disk (the system array, with its RAID driver loaded) create EFI, MSR, Windows and a **45 GB recovery partition labelled `WO_RECOVERY`** at the end of the disk with DiskPart (Shift+F10), then install Windows into the Windows partition. Commands: `docs/PROJECT_CONTEXT.md` §2a. The media RAID0 is a separate disk and is not touched by a restore. Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
+In Windows Setup, leave room for the factory restore: on the system disk (the system array, with its RAID driver loaded) create EFI, MSR, Windows and a **45 GB recovery partition labelled `WO_RECOVERY`** at the end of the disk with DiskPart (Shift+F10), then install Windows into the Windows partition. Commands: `docs/PROJECT_CONTEXT.md` §2a. The media RAID0 is a separate disk; a factory reset erases it too (WATCHOUT is installed there; shows and assets are uploaded again). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
 
 ## 1. First boot, still offline
 
@@ -53,8 +53,8 @@ Run after updates and drivers, before WATCHOUT. Errors about wermgr, PeriodInNan
 
 ## 5. WATCHOUT 7 and NVIDIA
 
-- [ ] Install WATCHOUT
-- [ ] Create a folder on the RAID0, then Nodes → Node Properties → **Change Working Directory** to it
+- [ ] Install WATCHOUT into a folder on the RAID0 (e.g. `D:\WATCHOUT 7`)
+- [ ] Create a separate folder on the RAID0, outside the WATCHOUT folder (e.g. `D:\WO7-Work`), then Nodes → Node Properties → **Change Working Directory** to it
 - [ ] Auto-logon with `netplwiz` (checkbox missing → Settings → Accounts → Sign-in options → turn off "only allow Windows Hello sign-in")
 - [ ] NVIDIA Control Panel: global profile "Workstation – Dynamic Streaming"
 - [ ] Then confirm Power Management Mode = Prefer Maximum Performance and Vertical Sync = Off
@@ -113,27 +113,33 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 - [ ] Settings → Bluetooth & devices → USB: notifications shown as off (10.12)
 - [ ] `Get-Service WSearch` → StartType Disabled (10.15)
 - [ ] Each data drive → Properties: "Allow files on this drive to have contents indexed" unticked (10.15, per drive)
-- [ ] All nodes discover each other; asset transfer to the RAID0 works
 - [ ] Optional: secpol.msc → Network List Manager Policies → User cannot change location
-- [ ] Soak test: representative show for several hours on all outputs
 
 ### Factory image
 
-System Restore is off and "Reset this PC" is not used: the factory image is the rollback. A restore rewrites C: only; the media RAID0 (shows, working directory) is not touched. Recovery toolkit: `recovery/` in this repository (WinPE build, recovery menu, boot entry). Not yet automated by the wizard.
+The factory image is the machine exactly as it is now, at the end of the build: C: and the RAID0 (D:, with the WATCHOUT folder and an empty working directory). A factory reset erases C: and D: and puts the image back, so it also repairs a damaged WATCHOUT install; shows and assets are uploaded again afterwards. System Restore is off and "Reset this PC" is not used. Take the image **before any show or asset is loaded**, then test it with the soak test. Recovery toolkit: `recovery/` in this repository. Not yet automated by the wizard.
 
 - [ ] Recovery partition present: `Get-Partition` shows `WO_RECOVERY` after C:, type Recovery, no drive letter (created in Windows Setup, see "Before you start")
 - [ ] Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry
 - [ ] BitLocker still off on C: (`manage-bde -status C:`); no Sysprep (same-machine restore)
-- [ ] Capture the factory image: restart into the recovery, choose Capture, name it `WO7.<version>_W11-25H2_<YYYY-MM-DD>` (e.g. `WO7.8.4_W11-25H2_2026-11-20`)
-- [ ] Copy the image off the machine (recovery USB stick or NAS): an image on the same array as C: does not survive an array failure
+- [ ] No show or asset loaded yet; the working directory is empty
+- [ ] Capture the factory image (C: and D:): restart into the recovery, choose Capture, name it `WO7.<version>_W11-25H2_<YYYY-MM-DD>` (e.g. `WO7.8.4_W11-25H2_2026-11-20`)
+
+### Test the machine and the image
+
+- [ ] All nodes discover each other; asset transfer to the RAID0 works
+- [ ] Soak test: representative show for several hours on all outputs. Passed → the factory image is valid. A change is needed → factory reset, make the change before loading any show, capture again, soak test again
+- [ ] Copy the valid image off the machine (recovery USB stick or NAS): an image on the same array as C: does not survive an array failure
 
 ## 9. Maintenance
 
 - [ ] No in-place updates: Windows Update is disabled for good. To move to a newer Windows, reinstall from a newer ISO and rebuild with this checklist. Check activation with `slmgr /xpr` (the Settings Activation page errors with updates disabled)
 - [ ] NVIDIA: update only to versions tested for your WATCHOUT release
-- [ ] Before any RAID driver or BIOS update: capture a new factory image first; keep RAID driver and BIOS RAID module versions matched. A new RAID driver also goes into the recovery WinPE (rebuild it), or the recovery cannot see C:
-- [ ] After a WATCHOUT, NVIDIA or configuration change that passed a soak test: capture a new factory image (the previous one is kept as the fallback) and copy it off the machine
-- [ ] Factory reset: restart into the recovery, choose Restore. C: returns to the captured state; shows and media on the RAID0 stay
+- [ ] Factory reset: restart into the recovery, choose Restore and type `RESTORE`. C: and D: return to the state at the end of the build (WATCHOUT included); upload shows and assets again
+- [ ] Never capture a machine that has been used for shows: show data would become part of the factory state. To put a new version into the factory image, use one of these two ways, then soak test and copy the new image off the machine (the previous image is kept as the fallback):
+  - **Rebuild (strict):** reinstall Windows from the ISO and follow this whole checklist with the new version, then capture. Always for a new Windows ISO, a new major WATCHOUT version or a hardware change
+  - **Update (faster):** factory reset, install the update before loading any show, then capture. For minor WATCHOUT updates (7.8.x), NVIDIA drivers, other drivers. The image is then "old version updated", not a first install
+- [ ] RAID driver or BIOS RAID module update: keep their versions matched; put the new driver into the factory image (update way above) **and** into the recovery WinPE (rebuild it), or the recovery cannot see C:
 - [ ] Array shows Offline after no change of yours: check the drive in RAIDXpert2 (event log, health)
 
 ## Sources

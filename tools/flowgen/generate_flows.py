@@ -182,8 +182,11 @@ def wo7():
         ]},
         winutil(p, False),
         {"id": "WO7-05", "number": 5, "title": "WATCHOUT 7 and NVIDIA", "steps": [
-            step("WO7-05.1", "Install WATCHOUT 7", "manual"),
-            step("WO7-05.2", "Folder on the RAID0, then Nodes > Node Properties > Change Working Directory to it", "manual",
+            step("WO7-05.1", "Install WATCHOUT 7 into a folder on the RAID0 (e.g. D:\\WATCHOUT 7)", "manual",
+                 "The factory image covers C: and the RAID0, so a factory reset also replaces the WATCHOUT install "
+                 "(owner, Nov 2026; OPEN_QUESTIONS 29)."),
+            step("WO7-05.2", "Separate folder on the RAID0, outside the WATCHOUT folder, then Nodes > Node Properties > "
+                 "Change Working Directory to it", "manual",
                  "Done in WATCHOUT. Put the same folder in Options (-WorkingDirectory) so PostInstall's Defender "
                  "exclusion and this check use it.", check="wo7-workdir", options=True),
             step("WO7-05.3", "Auto-logon", "manual",
@@ -251,20 +254,25 @@ def wo7():
                  "drive except C: [Uncertain].", check="media-indexing-off", uncertain=True),
             step("WO7-08.11", "Full audit: both script phases report every item Set", "check",
                  "Read-only. Anything Not set is listed.", check="audit:Both"),
-            step("WO7-08.12", "All nodes discover each other; asset transfer to the RAID0 works", "manual"),
-            step("WO7-08.13", "Optional: secpol.msc > Network List Manager Policies > User cannot change location", "manual"),
-            step("WO7-08.14", "Soak test: representative show for several hours on all outputs", "manual"),
-            # Factory image (owner, Nov 2026; OPEN_QUESTIONS 29). Manual until the
-            # recovery toolkit in recovery/ is ported and tested.
-            step("WO7-08.15", "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)", "manual",
+            step("WO7-08.12", "Optional: secpol.msc > Network List Manager Policies > User cannot change location", "manual"),
+            # Factory image (owner, Nov 2026; OPEN_QUESTIONS 29): the machine as it is at the end of the
+            # build, C: and the RAID0, captured before any show and then tested by the soak test.
+            # Manual until the recovery toolkit in recovery/ is ported and tested.
+            step("WO7-08.13", "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)", "manual",
                  "Get-Partition shows it as type Recovery, about 45 GB, no drive letter. "
                  "Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a."),
-            step("WO7-08.16", "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry", "manual",
+            step("WO7-08.14", "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry", "manual",
                  "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: "
-                 "the factory image is the rollback."),
-            step("WO7-08.17", "Capture the factory image (restart into the recovery, choose Capture)", "manual",
-                 "BitLocker must be off (step 8.3); no Sysprep. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>."),
-            step("WO7-08.18", "Copy the factory image off the machine (recovery USB stick or NAS)", "manual",
+                 "a factory reset puts this image back."),
+            step("WO7-08.15", "Capture the factory image of C: and the RAID0, before any show or asset is loaded", "manual",
+                 "Restart into the recovery, choose Capture. BitLocker must be off (step 8.3); no Sysprep; the working "
+                 "directory must be empty. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>. A factory reset erases C: and D: "
+                 "and puts this image back (shows and assets are uploaded again)."),
+            step("WO7-08.16", "All nodes discover each other; asset transfer to the RAID0 works", "manual"),
+            step("WO7-08.17", "Soak test: representative show for several hours on all outputs", "manual",
+                 "Passed: the factory image is valid. A change is needed: factory reset, make the change before loading "
+                 "any show, capture again, soak test again."),
+            step("WO7-08.18", "Copy the valid factory image off the machine (recovery USB stick or NAS)", "manual",
                  "An image on the same array as C: does not survive an array failure."),
         ]},
     ]
