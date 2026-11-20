@@ -48,6 +48,50 @@ or real hardware.
   (bootdata paths may not contain spaces or quotes). DISM mount needs an
   **NTFS** volume (error 0xc142011f = no reparse points, e.g. exFAT/USB).
 
+## 2a. Partition layout with the factory-restore partition (WO7, Nov 2026)
+
+Owner decision (20 Nov 2026): the recovery partition is made **in Windows
+Setup**, not by the wizard, so the wizard never shrinks C:. Size 40–50 GB
+(**45 GB** below). Layout of the system disk: EFI | MSR | Windows (C:) |
+`WO_RECOVERY`. The media RAID0 stays a separate disk.
+
+In Windows Setup, after "Load driver" for the RAID controller (never while
+raw member disks are shown, §2), press **Shift+F10**:
+
+```text
+diskpart
+list disk
+select disk <n>              the system array: check the size
+list partition               must list nothing; otherwise delete the old
+                             partitions in Setup's disk screen first
+convert gpt                  "not convertible" here = already GPT, carry on
+create partition efi size=260
+format quick fs=fat32 label="System"
+create partition msr size=16
+create partition primary
+shrink minimum=46080         45 GB left at the end of the disk
+format quick fs=ntfs label="Windows"
+create partition primary
+format quick fs=ntfs label="WO_RECOVERY"
+set id="de94bba4-06d1-4d40-a16a-bfd50179d6ac"
+gpt attributes=0x8000000000000001
+list partition
+exit
+```
+
+Then **Refresh** in Setup's disk screen, select the "Windows" partition and
+install into it. Recovery type ID and attributes (platform-required + no
+drive letter) are the ones Microsoft documents for its own recovery
+partition ([UEFI/GPT-based hard drive partitions](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/configure-uefigpt-based-hard-drive-partitions)).
+EFI 260 MB covers 4K-native drives (Microsoft's minimum is 100 MB).
+No `clean`: the repo rule against `diskpart clean` stays (AGENTS.md rule 7).
+
+**[Uncertain]:** whether Windows 11 25H2 Setup then puts its own WinRE
+(`\Recovery\WindowsRE\winre.wim`, ~1 GB) into `WO_RECOVERY`, into C:, or
+into a new partition it creates; MicroWin may remove WinRE altogether.
+Check after the install with `Get-Partition` and `reagentc /info`. Any of
+the three is acceptable; the toolkit must leave a `\Recovery` folder alone.
+
 ## 3. Phase order and why
 
 1. **PreUpdate offline** (cable unplugged): `SearchOrderConfig=0` +
@@ -210,6 +254,15 @@ or real hardware.
 - Simpler for exact twins: disk image clone + rename + new IP.
 - Licensing: one Windows licence per machine; formal reimaging rights belong
   to Commercial (Volume) Licensing media **[Uncertain how it applies here]**.
+
+- **Factory restore (WO7, decided Nov 2026):** golden image of C: on the
+  hidden `WO_RECOVERY` partition (§2a), restored from a WinPE that boots
+  from that partition (RAM disk entry in the BCD) or from a USB stick. Not
+  "Reset this PC" (rebuilds from WinSxS, restores only inbox apps and INF
+  drivers; the scripts also set the WinRE `DisableSetup` and `DisableSR`
+  policies). Toolkit (untested templates): `recovery/`. Same machine only, no
+  Sysprep; the CodeMeter dongle carries the licence, so a restore does not
+  touch licensing. Open items: OPEN_QUESTIONS 29.
 
 ## 9. Field issues log
 

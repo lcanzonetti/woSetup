@@ -806,7 +806,7 @@
     {
       "id": "WO7-08",
       "number": 8,
-      "title": "Verify, soak test, image",
+      "title": "Verify, soak test, factory image",
       "steps": [
         {
           "id": "WO7-08.1",
@@ -1076,9 +1076,60 @@
         },
         {
           "id": "WO7-08.15",
-          "title": "Image the system disk (System Restore is off; the image is your rollback)",
+          "title": "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)",
           "kind": "manual",
-          "details": "",
+          "details": "Get-Partition shows it as type Recovery, about 45 GB, no drive letter. Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.16",
+          "title": "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry",
+          "kind": "manual",
+          "details": "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: the factory image is the rollback.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.17",
+          "title": "Capture the factory image (restart into the recovery, choose Capture)",
+          "kind": "manual",
+          "details": "BitLocker must be off (step 8.3); no Sysprep. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>.",
+          "roles": [
+            "Display",
+            "Production"
+          ],
+          "needsInternet": false,
+          "mustBeOffline": false,
+          "confirm": false,
+          "uncertain": false,
+          "optionsStep": false,
+          "autoDone": false,
+          "informational": false
+        },
+        {
+          "id": "WO7-08.18",
+          "title": "Copy the factory image off the machine (recovery USB stick or NAS)",
+          "kind": "manual",
+          "details": "An image on the same array as C: does not survive an array failure.",
           "roles": [
             "Display",
             "Production"
