@@ -92,7 +92,7 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-07.5 | Read the warnings; fix and run again if needed (safe to repeat) | Manual | — | after WO7-07.4 |
 | WO7-07.6 | Restart | Automatic — restart | — | after WO7-07.4 |
 
-### 8. Verify, soak test, image
+### 8. Verify, soak test, factory image
 
 | Id | Step | Type | Check | Notes |
 | --- | --- | --- | --- | --- |
@@ -111,7 +111,10 @@ Order and wording follow the checklists in `docs/checklists/`. The wizard runs o
 | WO7-08.12 | All nodes discover each other; asset transfer to the RAID0 works | Manual | — |  |
 | WO7-08.13 | Optional: secpol.msc > Network List Manager Policies > User cannot change location | Manual | — |  |
 | WO7-08.14 | Soak test: representative show for several hours on all outputs | Manual | — |  |
-| WO7-08.15 | Image the system disk (System Restore is off; the image is your rollback) | Manual | — |  |
+| WO7-08.15 | Recovery partition WO_RECOVERY present after C: (created in Windows Setup) | Manual | — |  |
+| WO7-08.16 | Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry | Manual | — |  |
+| WO7-08.17 | Capture the factory image (restart into the recovery, choose Capture) | Manual | — |  |
+| WO7-08.18 | Copy the factory image off the machine (recovery USB stick or NAS) | Manual | — |  |
 
 ### Finish
 

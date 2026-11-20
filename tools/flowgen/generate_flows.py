@@ -229,7 +229,7 @@ def wo7():
             step("WO7-07.6", "Restart", "automated", "Then start the wizard again from the USB stick.",
                  action=RESTART, after="WO7-07.4"),
         ]},
-        {"id": "WO7-08", "number": 8, "title": "Verify, soak test, image", "steps": [
+        {"id": "WO7-08", "number": 8, "title": "Verify, soak test, factory image", "steps": [
             step("WO7-08.1", "Defender off (or exclusions present with -DefenderMode Exclusions)", "check", check="defender-off"),
             step("WO7-08.2", "Power plan \"WATCHOUT 7\" active", "check", check="power-plan"),
             step("WO7-08.3", "BitLocker protection off", "check", check="bitlocker-off"),
@@ -254,7 +254,18 @@ def wo7():
             step("WO7-08.12", "All nodes discover each other; asset transfer to the RAID0 works", "manual"),
             step("WO7-08.13", "Optional: secpol.msc > Network List Manager Policies > User cannot change location", "manual"),
             step("WO7-08.14", "Soak test: representative show for several hours on all outputs", "manual"),
-            step("WO7-08.15", "Image the system disk (System Restore is off; the image is your rollback)", "manual"),
+            # Factory image (owner, Nov 2026; OPEN_QUESTIONS 29). Manual until the
+            # recovery toolkit in recovery/ is ported and tested.
+            step("WO7-08.15", "Recovery partition WO_RECOVERY present after C: (created in Windows Setup)", "manual",
+                 "Get-Partition shows it as type Recovery, about 45 GB, no drive letter. "
+                 "Commands for Windows Setup: docs/PROJECT_CONTEXT.md section 2a."),
+            step("WO7-08.16", "Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry", "manual",
+                 "Recovery toolkit in recovery/ (untested templates). System Restore is off and \"Reset this PC\" is not used: "
+                 "the factory image is the rollback."),
+            step("WO7-08.17", "Capture the factory image (restart into the recovery, choose Capture)", "manual",
+                 "BitLocker must be off (step 8.3); no Sysprep. Name it WO7.<version>_W11-25H2_<YYYY-MM-DD>."),
+            step("WO7-08.18", "Copy the factory image off the machine (recovery USB stick or NAS)", "manual",
+                 "An image on the same array as C: does not survive an array failure."),
         ]},
     ]
 

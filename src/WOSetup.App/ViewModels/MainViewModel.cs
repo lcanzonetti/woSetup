@@ -69,6 +69,7 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<string> HaveReady { get; } =
     [
         "Windows 11 Pro 64-bit 24H2/25H2 installed, signed in with the show account (BIOS, RAID arrays and Windows Setup are done before the wizard).",
+        "WATCHOUT 7: the 45 GB WO_RECOVERY partition for the factory image is created in Windows Setup (docs/PROJECT_CONTEXT.md section 2a).",
         "Network cable unplugged until PreUpdate has run (section 1).",
         "On the USB stick: NIC, chipset, storage/RAID and capture/audio drivers, the NVIDIA driver tested for your WATCHOUT release, WinUtil, the WATCHOUT installer.",
         "WATCHOUT 6: licence key (CodeMeter dongle). Plan the IP addresses of the show network.",

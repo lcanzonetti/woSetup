@@ -1,12 +1,14 @@
 # WATCHOUT 7 Server Build Checklist
 
-Oct 14, 2026 · @Lorenzo
+Oct 14, 2026 · factory restore added Nov 20, 2026 · @Lorenzo
 
-Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (MicroWin), AMD RAID system and media arrays, WO7-Setup.ps1 for driver lockdown and the Dataton GPO set. Written for WATCHOUT 7.8.4 and Windows 11 25H2.
+Tick each box in order on every new WATCHOUT 7 display server: Windows 11 Pro (MicroWin), AMD RAID system and media arrays, WO7-Setup.ps1 for driver lockdown and the Dataton GPO set. Written for WATCHOUT 7.8.4 and Windows 11 25H2. The finished system volume is kept as a factory image on a hidden recovery partition (section 8).
 
 ## Before you start
 
-This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2). Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
+This checklist starts on a machine where Windows is already installed (BIOS, RAID arrays and Windows Setup notes: `docs/PROJECT_CONTEXT.md` §2).
+
+In Windows Setup, leave room for the factory restore: on the system disk (the system array, with its RAID driver loaded) create EFI, MSR, Windows and a **45 GB recovery partition labelled `WO_RECOVERY`** at the end of the disk with DiskPart (Shift+F10), then install Windows into the Windows partition. Commands: `docs/PROJECT_CONTEXT.md` §2a. The media RAID0 is a separate disk and is not touched by a restore. Have ready on the USB stick: the setup wizard (or WO7-Setup.ps1 + LGPO.exe), the NIC driver, the RAID driver package and management app (if the machine has RAID), chipset/capture/audio drivers, and the NVIDIA driver at the version listed in the WATCHOUT release notes (not "latest").
 
 ## 1. First boot, still offline
 
@@ -99,7 +101,7 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 | `-WorkingDirectory <path>` | Working directory is not the default `.wo` folder |
 | -KeepUpdateService | Keep the Windows Update services and tasks running (default: fully disabled with WinUtil's "Disable all updates" steps) |
 
-## 8. Verify, soak test, image
+## 8. Verify, soak test, factory image
 
 - [ ] `Get-MpComputerStatus | Select IsTamperProtected, RealTimeProtectionEnabled, BehaviorMonitorEnabled, OnAccessProtectionEnabled` → all False (Off mode)
 - [ ] `powercfg /getactivescheme` → "WATCHOUT 7"
@@ -114,13 +116,24 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 - [ ] All nodes discover each other; asset transfer to the RAID0 works
 - [ ] Optional: secpol.msc → Network List Manager Policies → User cannot change location
 - [ ] Soak test: representative show for several hours on all outputs
-- [ ] Image the system disk (System Restore is off; the image is your rollback)
+
+### Factory image
+
+System Restore is off and "Reset this PC" is not used: the factory image is the rollback. A restore rewrites C: only; the media RAID0 (shows, working directory) is not touched. Recovery toolkit: `recovery/` in this repository (WinPE build, recovery menu, boot entry). Not yet automated by the wizard.
+
+- [ ] Recovery partition present: `Get-Partition` shows `WO_RECOVERY` after C:, type Recovery, no drive letter (created in Windows Setup, see "Before you start")
+- [ ] Install the recovery boot: WinPE (with the RAID driver) on the recovery partition and its boot entry
+- [ ] BitLocker still off on C: (`manage-bde -status C:`); no Sysprep (same-machine restore)
+- [ ] Capture the factory image: restart into the recovery, choose Capture, name it `WO7.<version>_W11-25H2_<YYYY-MM-DD>` (e.g. `WO7.8.4_W11-25H2_2026-11-20`)
+- [ ] Copy the image off the machine (recovery USB stick or NAS): an image on the same array as C: does not survive an array failure
 
 ## 9. Maintenance
 
 - [ ] No in-place updates: Windows Update is disabled for good. To move to a newer Windows, reinstall from a newer ISO and rebuild with this checklist. Check activation with `slmgr /xpr` (the Settings Activation page errors with updates disabled)
 - [ ] NVIDIA: update only to versions tested for your WATCHOUT release
-- [ ] Before any RAID driver or BIOS update: image first; keep RAID driver and BIOS RAID module versions matched
+- [ ] Before any RAID driver or BIOS update: capture a new factory image first; keep RAID driver and BIOS RAID module versions matched. A new RAID driver also goes into the recovery WinPE (rebuild it), or the recovery cannot see C:
+- [ ] After a WATCHOUT, NVIDIA or configuration change that passed a soak test: capture a new factory image (the previous one is kept as the fallback) and copy it off the machine
+- [ ] Factory reset: restart into the recovery, choose Restore. C: returns to the captured state; shows and media on the RAID0 stay
 - [ ] Array shows Offline after no change of yours: check the drive in RAIDXpert2 (event log, health)
 
 ## Sources
@@ -131,4 +144,6 @@ Applies power plan, NIC power settings, network location, notifications, the cha
 - [Dataton KB – GPU & Display Driver Best Practices](https://knowledge.dataton.com/knowledge/articles/gpu-display-driver-best-practices)
 - [Dell KB 000443715 – Configure RAID with AMD RAIDXpert2](https://www.dell.com/support/kbdoc/en-us/000443715/how-to-configure-raid-with-amd-raidxpert2?lang=en) (24 May 2026)
 - [Windows Latest – Windows 11 24H2 device encryption by default](https://windowslatest.com/2024/05/08/microsoft-confirms-windows-11-24h2-turns-on-device-encryption-by-default) (8 May 2024)
+- [Microsoft Learn – UEFI/GPT-based hard drive partitions](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/configure-uefigpt-based-hard-drive-partitions) (recovery partition type and attributes)
+- [Microsoft KB5132953 – Windows Production CA 2011 expiration and bootloader updates](https://support.microsoft.com/help/5132953) (Oct 2026; recovery WinPE must boot with the machine's Secure Boot state)
 - Dataton WATCHOUT Windows 10 Enterprise Tweaking Guide, doc. 3749 rev 1.3 (2018)
